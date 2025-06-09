@@ -8,11 +8,16 @@ def create_opportunities_database():
     connection = sqlite3.connect("opportunities.db")
     crsr = connection.cursor()
     
+    # Drop existing tables if they exist
+    crsr.execute("DROP TABLE IF EXISTS opportunities")
+    crsr.execute("DROP TABLE IF EXISTS user_opportunities")
+    
     # Create opportunities table
     crsr.execute("""
-        CREATE TABLE IF NOT EXISTS opportunities (
+        CREATE TABLE opportunities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             organization_name TEXT NOT NULL,
+            title TEXT NOT NULL,
             description TEXT NOT NULL,
             location TEXT NOT NULL,
             city TEXT NOT NULL,
@@ -27,7 +32,7 @@ def create_opportunities_database():
     
     # Create user_opportunities table for tracking user interactions
     crsr.execute("""
-        CREATE TABLE IF NOT EXISTS user_opportunities (
+        CREATE TABLE user_opportunities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             opportunity_id INTEGER NOT NULL,
@@ -48,9 +53,12 @@ def create_users_database():
     connection = sqlite3.connect("users.db")
     crsr = connection.cursor()
     
+    # Drop existing tables if they exist
+    crsr.execute("DROP TABLE IF EXISTS users")
+    
     # Create users table with all fields
     crsr.execute("""
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             password TEXT NOT NULL,
@@ -60,7 +68,7 @@ def create_users_database():
             role TEXT,
             twoFactorAuth TEXT,
             lastLogin TEXT,
-            emailAddress TEXT,
+            email TEXT,
             phoneNumber TEXT,
             name TEXT,
             dateOfBirth TEXT,

@@ -1,128 +1,42 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - Flask Development Template</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #282c34;
-            color: white;
-            text-align: center;
-        }
-        .container {
-            max-width: 400px;
-            padding: 20px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        h1 {
-            font-size: 2rem;
-        }
-        input {
-            width: calc(100% - 20px);
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 5px;
-            background-color: #fff;
-            color: #000;
-            font-size: 1rem;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 5px;
-            background-color: #61dafb;
-            color: black;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        button:hover {
-            background-color: #4fa3d1;
-        }
-        .footer {
-            margin-top: 20px;
-            font-size: 1rem;
-            opacity: 0.9;
-            font-weight: bold;
-            background: linear-gradient(90deg, #61dafb, #4fa3d1);
-            padding: 10px;
-            border-radius: 5px;
-            display: inline-block;
-        }
-        .error-message {
-            background-color: #ff4d4d;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            font-size: 1rem;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Sign Up</h1>
-        
-        <div id="error-message" class="error-message" 
-            {% if error %} style="display: block;" {% else %} style="display: none;" {% endif %}>
-            {{ error }}
+{% extends "base.html" %}
+
+{% block title %}Sign Up - VolunteerHub{% endblock %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 4rem auto;">
+    <h1>Join VolunteerHub</h1>
+    <p style="margin-bottom: 2rem;">Create an account to start making a difference</p>
+    
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="/auth/signup" class="card">
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" required>
         </div>
-
-        <form action="/auth/signup" method="POST">
-            <div class="form-group">
-                <label for="name">Full Name:</label>
-                <input type="text" id="name" name="name" required>
-            </div>
-            <div class="form-group">
-                <label for="emailaddress">Email Address:</label>
-                <input type="email" id="emailaddress" name="emailaddress" required>
-            </div>
-            <div class="form-group">
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <div class="form-group">
-                <label for="city">City:</label>
-                <input type="text" id="city" name="city" required>
-            </div>
-            <div class="form-group">
-                <label for="state">State:</label>
-                <input type="text" id="state" name="state" required>
-            </div>
-            <button type="submit">Create Account</button>
-        </form>
         
-        <button onclick="location.href='/'">Back to Home</button>
-        <button onclick="location.href='/auth/login'">Already have an account? Login</button>
-
-    </div>
-
-    <script>
-        // Add geolocation functionality
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                document.getElementById('latitude').value = position.coords.latitude;
-                document.getElementById('longitude').value = position.coords.longitude;
-            });
-        }
-    </script>
-
-</body>
-</html>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="location">Location (City, State)</label>
+            <input type="text" id="location" name="location" required>
+        </div>
+        
+        <button type="submit" class="button button-primary" style="width: 100%;">Create Account</button>
+    </form>
+    
+    <p style="text-align: center; margin-top: 1.5rem;">
+        Already have an account? <a href="/auth/login" style="color: var(--accent-primary); text-decoration: none;">Sign in</a>
+    </p>
+</div>
+{% endblock %} 

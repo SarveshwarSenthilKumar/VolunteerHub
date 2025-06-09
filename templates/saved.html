@@ -139,23 +139,31 @@
         <a href="/swipe" class="button button-primary">Find Opportunities</a>
     </div>
 {% endif %}
-{% endblock %}
 
-{% block extra_js %}
 <script>
-    function removeSaved(opportunityId) {
-        fetch('/saved', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'remove',
-                opportunity_id: opportunityId
-            })
-        }).then(() => {
-            window.location.reload();
-        });
-    }
+function removeSaved(opportunityId) {
+    fetch('/saved', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'remove',
+            opportunity_id: opportunityId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed to remove opportunity.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while removing the opportunity.');
+    });
+}
 </script>
 {% endblock %} 

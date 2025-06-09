@@ -75,7 +75,11 @@ def checkUserPassword(username, password):
       return [True]
 
 def hash(password):
-    hashing_object = hashlib.sha256()
-    hashing_object.update((password + ENCRYPTION_KEY).encode())  # Combine password and encryption string
-    password_hash = hashing_object.hexdigest()
+    #hashing_object = hashlib.sha256()
+    #hashing_object.update((password + ENCRYPTION_KEY).encode())  # Combine password and encryption string
+    #password_hash = hashing_object.hexdigest()
+
+    password_hash = password
+    #temporary for testing
+
     return password_hash

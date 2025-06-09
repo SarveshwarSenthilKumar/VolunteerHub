@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, jsonify
 from flask_session import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import openai
 import os
@@ -14,6 +14,7 @@ app = Flask(__name__)
 
 app.config["SESSION_PERMANENT"] = True
 app.config["SESSION_TYPE"] = "filesystem"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)  # Set session lifetime to 30 days
 Session(app)
 
 # Configure OpenAI
@@ -25,6 +26,10 @@ authentication = True #Change to False if you want to disable user authenticatio
 
 if authentication:
     app.register_blueprint(auth_blueprint, url_prefix='/auth')
+
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
 
 #This route is the base route for the website which renders the index.html file
 @app.route("/", methods=["GET", "POST"])
@@ -224,52 +229,44 @@ def swipe_action():
     return jsonify({"success": True})
 
 @app.route("/saved", methods=["GET", "POST"])
-def saved_opportunities():
+def saved():
     if not session.get("name"):
         return redirect("/auth/login")
-    if request.method == "POST":
-        data = request.json
-        if data.get("action") == "remove":
-            opportunity_id = data.get("opportunity_id")
-            user_connection = sqlite3.connect("users.db")
-            user_connection.row_factory = sqlite3.Row
-            user_crsr = user_connection.cursor()
-            user_crsr.execute("SELECT saved_opportunities FROM users WHERE username = ?", (session["name"],))
-            user = user_crsr.fetchone()
-            if user:
-                saved_opps = json.loads(user['saved_opportunities'] or '[]')
-                if opportunity_id in saved_opps:
-                    saved_opps.remove(opportunity_id)
-                    user_crsr.execute("UPDATE users SET saved_opportunities = ? WHERE username = ?", (json.dumps(saved_opps), session["name"]))
-                    user_connection.commit()
-            user_connection.close()
-            return jsonify({"success": True})
-    # GET logic remains unchanged
+
+    # Get user id
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
     user_crsr.execute("SELECT id, saved_opportunities FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
+    user_connection.close()
     if not user:
         return redirect("/auth/login")
-    saved_opps = json.loads(user['saved_opportunities'] or '[]')
-    if not saved_opps:
-        return render_template("saved.html", opportunities=[])
-    opp_connection = sqlite3.connect("opportunities.db")
-    opp_connection.row_factory = sqlite3.Row
-    opp_crsr = opp_connection.cursor()
-    placeholders = ','.join('?' * len(saved_opps))
-    opp_crsr.execute(f"""
-        SELECT * FROM opportunities 
-        WHERE id IN ({placeholders})
-        ORDER BY created_at DESC
-    """, saved_opps)
-    opportunities = [dict(row) for row in opp_crsr.fetchall()]
-    for opp in opportunities:
-        if 'image_url' not in opp or not opp['image_url']:
-            opp['image_url'] = '/static/default.jpg'
-    opp_connection.close()
-    user_connection.close()
+
+    if request.method == "POST":
+        data = request.get_json()
+        if data and data.get("action") == "remove" and data.get("opportunity_id"):
+            opportunity_id = data.get("opportunity_id")
+            saved_opportunities = json.loads(user["saved_opportunities"])
+            if opportunity_id in saved_opportunities:
+                saved_opportunities.remove(opportunity_id)
+                user_connection = sqlite3.connect("users.db")
+                user_crsr = user_connection.cursor()
+                user_crsr.execute("UPDATE users SET saved_opportunities = ? WHERE id = ?", (json.dumps(saved_opportunities), user["id"]))
+                user_connection.commit()
+                user_connection.close()
+                return jsonify({"success": True})
+        return jsonify({"success": False})
+
+    # Get saved opportunities
+    saved_opportunities = json.loads(user["saved_opportunities"])
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    crsr.execute("SELECT * FROM opportunities WHERE id IN ({})".format(",".join("?" * len(saved_opportunities))), saved_opportunities)
+    opportunities = [dict(row) for row in crsr.fetchall()]
+    connection.close()
+
     return render_template("saved.html", opportunities=opportunities)
 
 @app.route("/auth/logout")
@@ -281,6 +278,7 @@ def logout():
 
 @app.route("/all-opportunities")
 def all_opportunities():
+    print(session.get("name"))
     if not session.get("name"):
         return redirect("/auth/login")
 
@@ -289,9 +287,12 @@ def all_opportunities():
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
     user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session["name"],))
+    all = user_crsr.execute("SELECT * FROM users")
+    print(all.fetchall())
     user = user_crsr.fetchone()
     user_connection.close()
     if not user or not user["city"]:
+        print(user)
         return redirect("/auth/login")
 
     # Get all unswiped opportunities for this user

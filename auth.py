@@ -39,53 +39,45 @@ def login():
 def signup():
     if session.get("name"):
         return redirect("/")
-    if request.method=="GET":
-        return render_template("/auth/signup.html")
-            
-    emailAddress = request.form.get("emailaddress").strip().lower()
-    fullName = request.form.get("name").strip()
-    username = request.form.get("username").strip().lower()
-    password = request.form.get("password").strip()
-    city = request.form.get("city").strip()
-    state = request.form.get("state").strip()
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        email = request.form.get("email")
+        city = request.form.get("city")
+        state = request.form.get("state")
+        name = request.form.get("name")
+        dateJoined = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    validName = verifyName(fullName)
-    if not validName[0]:
-        return render_template("/auth/signup.html", error=validName[1])
-    fullName = validName[1]
+        if not username or not password or not email or not city or not state or not name:
+            print(username, password, email, city, state, name)
+            return render_template("signup.html", error="All fields are required")
 
-    connection = sqlite3.connect("users.db")
-    connection.row_factory = sqlite3.Row
-    crsr = connection.cursor()
-    crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
-    results = crsr.fetchall()
-    connection.close()
+        connection = sqlite3.connect("users.db")
+        crsr = connection.cursor()
+        crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
+        if crsr.fetchone():
+            connection.close()
+            return render_template("signup.html", error="Username already exists")
 
-    if len(results) != 0:
-        return render_template("/auth/signup.html", error="This username is already taken! Please select a different username!")
-    if not checkEmail(emailAddress):
-        return render_template("/auth/signup.html", error="You have not entered a valid email address!")
-    if len(checkUserPassword(username, password)) > 1:
-        return render_template("/auth/signup.html", error=checkUserPassword(username, password)[1])
-        
-    tz_NY = pytz.timezone('America/New_York') 
-    now = datetime.now(tz_NY)
-    dateJoined = now.strftime("%d/%m/%Y %H:%M:%S")
+        crsr.execute("SELECT * FROM users WHERE email = ?", (email,))
+        if crsr.fetchone():
+            connection.close()
+            return render_template("signup.html", error="Email already exists")
 
-    password = hash(password)
-        
-    connection = sqlite3.connect("users.db")
-    crsr = connection.cursor()
-    crsr.execute("""
-        INSERT INTO users (username, password, emailaddress, name, dateJoined, city, state, saved_opportunities) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (username, password, emailAddress, fullName, dateJoined, city, state, '[]'))
-    connection.commit()
-    connection.close()
+        try:
+            crsr.execute("""
+                INSERT INTO users (username, password, email, city, state, name, dateJoined, saved_opportunities)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (username, password, email, city, state, name, dateJoined, '[]'))
+            connection.commit()
+            connection.close()
+            session["name"] = username
+            return redirect("/")
+        except Exception as e:
+            connection.close()
+            return render_template("signup.html", error=f"Error creating user: {e}")
 
-    session["name"] = username
-        
-    return redirect("/")
+    return render_template("signup.html")
     
 @auth_blueprint.route("/logout")
 def logout():
