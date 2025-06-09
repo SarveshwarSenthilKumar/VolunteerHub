@@ -1,8 +1,2 @@
-To Do List/Features to Add:
-    - Support for Multiple Databases – Add PostgreSQL/MySQL support via SQLAlchemy.
-    - Bootstrap or TailwindCSS Integration – Improve default UI with modern styling.
-    - Blueprints for Modular Development – Improve project scalability by structuring routes into Flask Blueprints.
-    - Add support for OAuth
-    - Create a video going over how to fork the repository and use the code, maybe hold a workshop at a hackathon for middle school students
-    - Add step to checking password where it verifies that the passowrd is not used in the top 20 or so passwords making it easily hackable
-    - Add AI in some capacity and make a chatbot template
+Build in Keywords
+Give more information in the browse opportunities page

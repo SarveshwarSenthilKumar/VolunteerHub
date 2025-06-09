@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 style="color: #fff;">All Opportunities in Your City</h1>
+<div class="opportunities-grid">
+    {% for opportunity in opportunities %}
+    <div class="opportunity-card">
+        <h2>{{ opportunity.title }}</h2>
+        <p><strong>Organization:</strong> {{ opportunity.organization_name }}</p>
+        <p><strong>Location:</strong> {{ opportunity.location }}</p>
+        <p><strong>Description:</strong> {{ opportunity.description }}</p>
+        <p><strong>Contact:</strong> {{ opportunity.contact_info }}</p>
+        <a href="{{ opportunity.apply_link }}" target="_blank" class="button">Apply</a>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+body {
+    background: #181a1b;
+    color: #e0e0e0;
+}
+.opportunities-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: flex-start;
+    margin-top: 24px;
+}
+.opportunity-card {
+    background: #23272a;
+    border: 1px solid #23272a;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    padding: 18px 20px 16px 20px;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    color: #e0e0e0;
+    transition: box-shadow 0.2s;
+}
+.opportunity-card:hover {
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    border-color: #444;
+}
+.opportunity-card h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #fff;
+}
+.opportunity-card p {
+    margin: 0.5em 0;
+    font-size: 1em;
+    color: #cfcfcf;
+}
+.button {
+    margin-top: 1em;
+    background: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    text-decoration: none;
+    text-align: center;
+    display: inline-block;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.button:hover {
+    background: #0056b3;
+}
+</style>
+{% endblock %} 

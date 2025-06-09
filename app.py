@@ -50,7 +50,7 @@ Volunteers Needed: [Number]
 Contact Info: [Contact Info]
 Apply Link: [Apply Link]
 
-Separate each opportunity with a blank line."""
+Separate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
 
     try:
         response = openai.chat.completions.create(
@@ -95,34 +95,67 @@ def extract_opportunity_info(text):
         parsed_opportunities.append(opportunity)
     return parsed_opportunities
 
-@app.route("/opportunities", methods=["GET"])
+@app.route("/opportunities")
 def opportunities():
     if not session.get("name"):
         return redirect("/auth/login")
 
-    # Get user info
+    # Get user city
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
     user_crsr.execute("SELECT city FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
-
     if not user or not user["city"]:
-        return redirect("/")
+        return redirect("/auth/login")
 
-    # Get search parameters
-    keyword = request.args.get("keyword", "").strip()
-    city = request.args.get("city", user["city"]).strip()
+    # Redirect to /swipe if user is logged in and has a city
+    return redirect("/swipe")
 
-    # Fetch and store new opportunities from ChatGPT if not already present
-    try:
-        opportunities_text = get_opportunities_from_chatgpt(city)
+@app.route("/swipe", methods=["GET"])
+def swipe():
+    if not session.get("name"):
+        return redirect("/auth/login")
+
+    # Get user id and city
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session["name"],))
+    user = user_crsr.fetchone()
+    user_connection.close()
+    if not user or not user["city"]:
+        return redirect("/auth/login")
+
+    max_retries = 3
+    retries = 0
+    opportunities = []
+    while retries < max_retries:
+        connection = sqlite3.connect("opportunities.db")
+        connection.row_factory = sqlite3.Row
+        crsr = connection.cursor()
+        crsr.execute("""
+            SELECT o.* FROM opportunities o
+            LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
+            WHERE uo.id IS NULL AND o.city LIKE ?
+            ORDER BY o.created_at DESC
+        """, (user["id"], f"%{user['city']}%"))
+        opportunities = [dict(row) for row in crsr.fetchall()]
+        connection.close()
+        # Filter out opportunities with missing/empty required fields
+        opportunities = [opp for opp in opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
+        if opportunities:
+            break
+        # If none, fetch and store new ones
+        opportunities_text = get_opportunities_from_chatgpt(user["city"])
         if opportunities_text:
             parsed_opportunities = extract_opportunity_info(opportunities_text)
             connection = sqlite3.connect("opportunities.db")
             crsr = connection.cursor()
             for opp in parsed_opportunities:
+                if not all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"]):
+                    continue
                 crsr.execute("""
                     SELECT id FROM opportunities 
                     WHERE organization_name = ? AND title = ? AND description = ?
@@ -144,56 +177,7 @@ def opportunities():
                     ))
             connection.commit()
             connection.close()
-    except Exception as e:
-        print(f"Error fetching or storing opportunities: {e}")
-
-    # Now search the database for matching opportunities
-    connection = sqlite3.connect("opportunities.db")
-    connection.row_factory = sqlite3.Row
-    crsr = connection.cursor()
-    query = "SELECT * FROM opportunities WHERE 1=1"
-    params = []
-    if keyword:
-        query += " AND (organization_name LIKE ? OR title LIKE ? OR description LIKE ?)"
-        params.extend([f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"])
-    if city:
-        query += " AND city LIKE ?"
-        params.append(f"%{city}%")
-    query += " ORDER BY created_at DESC"
-    crsr.execute(query, params)
-    opportunities = [dict(row) for row in crsr.fetchall()]
-    connection.close()
-
-    return render_template("opportunities.html", opportunities=opportunities)
-
-@app.route("/swipe", methods=["GET"])
-def swipe():
-    if not session.get("name"):
-        return redirect("/auth/login")
-
-    # Get user id and city
-    user_connection = sqlite3.connect("users.db")
-    user_connection.row_factory = sqlite3.Row
-    user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session["name"],))
-    user = user_crsr.fetchone()
-    user_connection.close()
-    if not user or not user["city"]:
-        return redirect("/auth/login")
-
-    # Get all unswiped opportunities for this user
-    connection = sqlite3.connect("opportunities.db")
-    connection.row_factory = sqlite3.Row
-    crsr = connection.cursor()
-    crsr.execute("""
-        SELECT o.* FROM opportunities o
-        LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-        WHERE uo.id IS NULL AND o.city LIKE ?
-        ORDER BY o.created_at DESC
-    """, (user["id"], f"%{user['city']}%"))
-    opportunities = [dict(row) for row in crsr.fetchall()]
-    connection.close()
-
+        retries += 1
     return render_template("swipe.html", opportunities=opportunities)
 
 @app.route("/swipe_action", methods=["POST"])
@@ -239,11 +223,28 @@ def swipe_action():
     user_connection.close()
     return jsonify({"success": True})
 
-@app.route("/saved")
+@app.route("/saved", methods=["GET", "POST"])
 def saved_opportunities():
     if not session.get("name"):
         return redirect("/auth/login")
-    # Get user's saved opportunities
+    if request.method == "POST":
+        data = request.json
+        if data.get("action") == "remove":
+            opportunity_id = data.get("opportunity_id")
+            user_connection = sqlite3.connect("users.db")
+            user_connection.row_factory = sqlite3.Row
+            user_crsr = user_connection.cursor()
+            user_crsr.execute("SELECT saved_opportunities FROM users WHERE username = ?", (session["name"],))
+            user = user_crsr.fetchone()
+            if user:
+                saved_opps = json.loads(user['saved_opportunities'] or '[]')
+                if opportunity_id in saved_opps:
+                    saved_opps.remove(opportunity_id)
+                    user_crsr.execute("UPDATE users SET saved_opportunities = ? WHERE username = ?", (json.dumps(saved_opps), session["name"]))
+                    user_connection.commit()
+            user_connection.close()
+            return jsonify({"success": True})
+    # GET logic remains unchanged
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
@@ -251,11 +252,9 @@ def saved_opportunities():
     user = user_crsr.fetchone()
     if not user:
         return redirect("/auth/login")
-    # Parse saved opportunities
     saved_opps = json.loads(user['saved_opportunities'] or '[]')
     if not saved_opps:
         return render_template("saved.html", opportunities=[])
-    # Get the full opportunity details
     opp_connection = sqlite3.connect("opportunities.db")
     opp_connection.row_factory = sqlite3.Row
     opp_crsr = opp_connection.cursor()
@@ -266,7 +265,6 @@ def saved_opportunities():
         ORDER BY created_at DESC
     """, saved_opps)
     opportunities = [dict(row) for row in opp_crsr.fetchall()]
-    # Add a default image_url if not present
     for opp in opportunities:
         if 'image_url' not in opp or not opp['image_url']:
             opp['image_url'] = '/static/default.jpg'
@@ -280,6 +278,78 @@ def logout():
     session.clear()
     # Redirect to the home page
     return redirect("/")
+
+@app.route("/all-opportunities")
+def all_opportunities():
+    if not session.get("name"):
+        return redirect("/auth/login")
+
+    # Get user id and city
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session["name"],))
+    user = user_crsr.fetchone()
+    user_connection.close()
+    if not user or not user["city"]:
+        return redirect("/auth/login")
+
+    # Get all unswiped opportunities for this user
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    crsr.execute("""
+        SELECT o.* FROM opportunities o
+        LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
+        WHERE o.city LIKE ?
+        ORDER BY o.created_at DESC
+    """, (user["id"], f"%{user['city']}%"))
+    opportunities = [dict(row) for row in crsr.fetchall()]
+    connection.close()
+
+    # If no opportunities are found, fetch and store new ones
+    if not opportunities:
+        opportunities_text = get_opportunities_from_chatgpt(user["city"])
+        if opportunities_text:
+            parsed_opportunities = extract_opportunity_info(opportunities_text)
+            connection = sqlite3.connect("opportunities.db")
+            crsr = connection.cursor()
+            for opp in parsed_opportunities:
+                crsr.execute("""
+                    SELECT id FROM opportunities 
+                    WHERE organization_name = ? AND title = ? AND description = ?
+                """, (opp["organization_name"], opp["title"], opp["description"]))
+                if not crsr.fetchone():
+                    crsr.execute("""
+                        INSERT INTO opportunities 
+                        (organization_name, title, description, location, city, contact_info, apply_link, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        opp["organization_name"],
+                        opp["title"],
+                        opp["description"],
+                        opp["location"],
+                        opp["city"],
+                        opp["contact_info"],
+                        opp["apply_link"],
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ))
+            connection.commit()
+            connection.close()
+            # Fetch the newly added opportunities
+            connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
+            crsr = connection.cursor()
+            crsr.execute("""
+                SELECT o.* FROM opportunities o
+                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
+                WHERE o.city LIKE ?
+                ORDER BY o.created_at DESC
+            """, (user["id"], f"%{user['city']}%"))
+            opportunities = [dict(row) for row in crsr.fetchall()]
+            connection.close()
+
+    return render_template("all_opportunities.html", opportunities=opportunities)
 
 def init_db():
     # Initialize users database

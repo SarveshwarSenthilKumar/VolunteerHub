@@ -110,7 +110,6 @@
     <div class="saved-grid">
         {% for opportunity in opportunities %}
         <div class="saved-card">
-            <img src="{{ opportunity.image_url if opportunity.image_url else '/static/default.jpg' }}" alt="{{ opportunity.title }}">
             <div class="saved-card-content">
                 <h3>{{ opportunity.title }}</h3>
                 <div class="organization">{{ opportunity.organization_name }}</div>
