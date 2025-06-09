@@ -1,54 +1,185 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flask Development Template</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #282c34;
-            color: white;
-            text-align: center;
+{% extends "base.html" %}
+
+{% block title %}VolunteerHub - Find Your Next Opportunity{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: linear-gradient(to bottom right, var(--bg-secondary), var(--bg-primary));
+        border-radius: 1.5rem;
+        margin-bottom: 4rem;
+    }
+
+    .hero h1 {
+        font-size: 3.5rem;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(to right, var(--text-primary), var(--accent-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto 2rem;
+    }
+
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 4rem;
+    }
+
+    .feature-card {
+        background-color: var(--bg-secondary);
+        padding: 2rem;
+        border-radius: 1rem;
+        text-align: center;
+    }
+
+    .feature-card .icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: var(--accent-primary);
+    }
+
+    .feature-card h3 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: var(--text-primary);
+    }
+
+    .feature-card p {
+        color: var(--text-secondary);
+    }
+
+    .cta-section {
+        text-align: center;
+        padding: 4rem 2rem;
+        background-color: var(--bg-secondary);
+        border-radius: 1.5rem;
+    }
+
+    .cta-section h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .cta-section p {
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto 2rem;
+    }
+
+    .cta-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 2rem;
+        margin: 4rem 0;
+    }
+
+    .stat-card {
+        text-align: center;
+        padding: 2rem;
+        background-color: var(--bg-secondary);
+        border-radius: 1rem;
+    }
+
+    .stat-card .number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--accent-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-card .label {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+
+    @media (max-width: 768px) {
+        .hero h1 {
+            font-size: 2.5rem;
+        }
+
+        .cta-buttons {
             flex-direction: column;
         }
-        .header {
-            font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 10px;
+
+        .cta-buttons .button {
+            width: 100%;
         }
-        .subtext {
-            font-size: 1.2rem;
-            opacity: 0.8;
-            margin-bottom: 20px;
-        }
-        .login-button {
-            background-color: transparent;
-            color: #61dafb;
-            border: 2px solid #61dafb;
-            font-size: 1rem;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.3s, color 0.3s;
-        }
-        .login-button:hover {
-            background-color: #61dafb;
-            color: black;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">Welcome to the Flask Development Template</div>
-    <div class="subtext">Created by Sarveshwar Senthil Kumar</div>
-    {% if authentication == True %}
-    <button class="login-button" onclick="location.href='/auth/login'">Login (Optional)</button>
-    <button class="login-button" style="margin-top: 5px;" onclick="location.href='/auth/signup'">Signup (Optional)</button>
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Make a Difference Today</h1>
+    <p>Find meaningful volunteer opportunities in your community and start making an impact.</p>
+    {% if not session.get("name") %}
+        <div class="cta-buttons">
+            <a href="/auth/signup" class="button button-primary">Get Started</a>
+            <a href="/auth/login" class="button button-secondary">Sign In</a>
+        </div>
+    {% else %}
+        <a href="/swipe" class="button button-primary">Find Opportunities</a>
     {% endif %}
-</body>
-</html>
+</section>
+
+<section class="stats">
+    <div class="stat-card">
+        <div class="number">1,000+</div>
+        <div class="label">Active Opportunities</div>
+    </div>
+    <div class="stat-card">
+        <div class="number">500+</div>
+        <div class="label">Partner Organizations</div>
+    </div>
+    <div class="stat-card">
+        <div class="number">10,000+</div>
+        <div class="label">Volunteers Connected</div>
+    </div>
+</section>
+
+<section class="features">
+    <div class="feature-card">
+        <div class="icon">🎯</div>
+        <h3>Personalized Matching</h3>
+        <p>Find opportunities that match your skills, interests, and schedule.</p>
+    </div>
+    <div class="feature-card">
+        <div class="icon">📍</div>
+        <h3>Local Impact</h3>
+        <p>Discover meaningful ways to contribute to your community.</p>
+    </div>
+    <div class="feature-card">
+        <div class="icon">🤝</div>
+        <h3>Easy Connection</h3>
+        <p>Connect directly with organizations and start volunteering.</p>
+    </div>
+</section>
+
+<section class="cta-section">
+    <h2>Ready to Make a Difference?</h2>
+    <p>Join our community of volunteers and start making an impact in your local area.</p>
+    {% if not session.get("name") %}
+        <div class="cta-buttons">
+            <a href="/auth/signup" class="button button-primary">Create Account</a>
+            <a href="/auth/login" class="button button-secondary">Sign In</a>
+        </div>
+    {% else %}
+        <a href="/swipe" class="button button-primary">Find Opportunities</a>
+    {% endif %}
+</section>
+{% endblock %}

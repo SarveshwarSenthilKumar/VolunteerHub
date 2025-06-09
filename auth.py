@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, session, jsonify, B
 from flask_session import Session
 from datetime import datetime
 import pytz
-from sql import * #Used for database connection and management
+import sqlite3
 from SarvAuth import * #Used for user authentication functions
 
 auth_blueprint = Blueprint('auth', __name__)
@@ -19,8 +19,12 @@ def login():
 
             password = hash(password)
 
-            db = SQL("sqlite:///users.db")
-            users=db.execute("SELECT * FROM users WHERE username = :username", username=username)
+            connection = sqlite3.connect("users.db")
+            connection.row_factory = sqlite3.Row
+            crsr = connection.cursor()
+            crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
+            users = crsr.fetchall()
+            connection.close()
 
             if len(users) == 0:
                 return render_template("/auth/login.html", error="No account has been found with this username!")
@@ -42,14 +46,20 @@ def signup():
     fullName = request.form.get("name").strip()
     username = request.form.get("username").strip().lower()
     password = request.form.get("password").strip()
+    city = request.form.get("city").strip()
+    state = request.form.get("state").strip()
 
     validName = verifyName(fullName)
     if not validName[0]:
-        return render_template("/auth/signUp.html", error=validName[1])
+        return render_template("/auth/signup.html", error=validName[1])
     fullName = validName[1]
 
-    db = SQL("sqlite:///users.db")
-    results = db.execute("SELECT * FROM users WHERE username = :username", username=username)
+    connection = sqlite3.connect("users.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
+    results = crsr.fetchall()
+    connection.close()
 
     if len(results) != 0:
         return render_template("/auth/signup.html", error="This username is already taken! Please select a different username!")
@@ -64,8 +74,14 @@ def signup():
 
     password = hash(password)
         
-    db = SQL("sqlite:///users.db")
-    db.execute("INSERT INTO users (username, password, emailaddress, name, dateJoined) VALUES (?,?,?,?,?)", username, password, emailAddress, fullName, dateJoined)
+    connection = sqlite3.connect("users.db")
+    crsr = connection.cursor()
+    crsr.execute("""
+        INSERT INTO users (username, password, emailaddress, name, dateJoined, city, state, saved_opportunities) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (username, password, emailAddress, fullName, dateJoined, city, state, '[]'))
+    connection.commit()
+    connection.close()
 
     session["name"] = username
         
