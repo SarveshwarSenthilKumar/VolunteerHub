@@ -130,8 +130,6 @@ def swipe():
     user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
-    if not user or not user["city"]:
-        return redirect("/auth/login")
 
     max_retries = 3
     retries = 0

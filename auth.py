@@ -7,79 +7,88 @@ from SarvAuth import * #Used for user authentication functions
 
 auth_blueprint = Blueprint('auth', __name__)
 
-@auth_blueprint.route("/login", methods=["GET", "POST"])
+@auth_blueprint.route('/login', methods=['GET', 'POST'])
 def login():
-        if session.get("name"):
-            return redirect("/")
-        if request.method == "GET":
-            return render_template("/auth/login.html")
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username or not password:
+            return render_template('auth/login.html', error='Please fill in all fields')
+        
+        connection = sqlite3.connect("users.db")
+        connection.row_factory = sqlite3.Row
+        crsr = connection.cursor()
+        crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
+        user = crsr.fetchone()
+        connection.close()
+        
+        if user and password == user['password']:  # Direct password comparison
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['name'] = user['name']
+            return redirect('/')
         else:
-            username = request.form.get("username").strip().lower()
-            password = request.form.get("password").strip()
-
-            password = hash(password)
-
-            connection = sqlite3.connect("users.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
-            users = crsr.fetchall()
-            connection.close()
-
-            if len(users) == 0:
-                return render_template("/auth/login.html", error="No account has been found with this username!")
-            user = users[0]
-            if user["password"] == password:
-                session["name"] = username
-                return redirect("/")
-
-            return render_template("/auth/login.html", error="You have entered an incorrect password! Please try again!")
+            return render_template('auth/login.html', error='Invalid username or password')
     
-@auth_blueprint.route("/signup", methods=["GET", "POST"])
+    return render_template('auth/login.html')
+
+@auth_blueprint.route('/signup', methods=['GET', 'POST'])
 def signup():
-    if session.get("name"):
-        return redirect("/")
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        email = request.form.get("email")
-        city = request.form.get("city")
-        state = request.form.get("state")
-        name = request.form.get("name")
-        dateJoined = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        if not username or not password or not email or not city or not state or not name:
-            print(username, password, email, city, state, name)
-            return render_template("signup.html", error="All fields are required")
-
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        email = request.form.get('email')
+        name = request.form.get('name')
+        city = request.form.get('city')
+        state = request.form.get('state')
+        
+        if not all([username, password, email, name, city, state]):
+            return render_template('auth/signup.html', error='Please fill in all fields')
+        
         connection = sqlite3.connect("users.db")
         crsr = connection.cursor()
+        
+        # Check if username already exists
         crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
         if crsr.fetchone():
             connection.close()
-            return render_template("signup.html", error="Username already exists")
-
-        crsr.execute("SELECT * FROM users WHERE email = ?", (email,))
+            return render_template('auth/signup.html', error='Username already exists')
+        
+        # Check if email already exists
+        crsr.execute("SELECT * FROM users WHERE emailAddress = ?", (email,))
         if crsr.fetchone():
             connection.close()
-            return render_template("signup.html", error="Email already exists")
-
+            return render_template('auth/signup.html', error='Email already registered')
+        
         try:
+            # Insert new user
             crsr.execute("""
-                INSERT INTO users (username, password, email, city, state, name, dateJoined, saved_opportunities)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (username, password, email, city, state, name, dateJoined, '[]'))
+                INSERT INTO users (
+                    username, password, emailAddress, name, city, state, 
+                    dateJoined, saved_opportunities
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                username, password, email, name, city, state,
+                datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S'),
+                '[]'
+            ))
+            
             connection.commit()
             connection.close()
-            session["name"] = username
-            return redirect("/")
+            
+            # Set session after successful signup
+            session['username'] = username
+            session['name'] = name
+            return redirect('/')
+            
         except Exception as e:
             connection.close()
-            return render_template("signup.html", error=f"Error creating user: {e}")
-
-    return render_template("signup.html")
+            return render_template('auth/signup.html', error=f'Error creating user: {str(e)}')
     
-@auth_blueprint.route("/logout")
+    return render_template('auth/signup.html')
+
+@auth_blueprint.route('/logout')
 def logout():
-    session["name"] = None
-    return redirect("/")
+    session.clear()
+    return redirect('/')
