@@ -26,7 +26,7 @@ def login():
         if user and password == user['password']:  # Direct password comparison
             session['user_id'] = user['id']
             session['username'] = user['username']
-            session['name'] = user['name']
+            session['name'] = user['username']
             return redirect('/')
         else:
             return render_template('auth/login.html', error='Invalid username or password')
@@ -79,7 +79,7 @@ def signup():
             
             # Set session after successful signup
             session['username'] = username
-            session['name'] = name
+            session['name'] = username
             return redirect('/')
             
         except Exception as e:

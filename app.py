@@ -112,6 +112,7 @@ def opportunities():
     user_crsr.execute("SELECT city FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
+    print(user)
     if not user or not user["city"]:
         return redirect("/auth/login")
 
@@ -120,6 +121,7 @@ def opportunities():
 
 @app.route("/swipe", methods=["GET"])
 def swipe():
+    print(session.get("name"))
     if not session.get("name"):
         return redirect("/auth/login")
 
@@ -130,6 +132,8 @@ def swipe():
     user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
+
+    print(user)
 
     max_retries = 3
     retries = 0
