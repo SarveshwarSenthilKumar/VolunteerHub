@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="users-container">
+    <h1>All Users</h1>
+    <table class="users-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Name</th>
+                <th>City</th>
+                <th>State</th>
+                <th>Date Joined</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user['id'] }}</td>
+                <td>{{ user['username'] }}</td>
+                <td>{{ user['emailAddress'] }}</td>
+                <td>{{ user['name'] }}</td>
+                <td>{{ user['city'] }}</td>
+                <td>{{ user['state'] }}</td>
+                <td>{{ user['dateJoined'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+.users-container {
+    max-width: 1200px;
+    margin: 50px auto;
+    padding: 20px;
+    background: #23272a;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #fff;
+}
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: #2c2f33;
+    border-radius: 4px;
+}
+.users-table th,
+.users-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #444;
+    color: #e0e0e0;
+}
+.users-table th {
+    background: #1e2124;
+    color: #fff;
+    font-weight: bold;
+}
+.users-table tr:hover {
+    background: #36393f;
+}
+</style>
+{% endblock %} 

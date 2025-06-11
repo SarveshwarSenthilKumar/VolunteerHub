@@ -133,8 +133,6 @@ def swipe():
     user = user_crsr.fetchone()
     user_connection.close()
 
-    print(user)
-
     max_retries = 3
     retries = 0
     opportunities = []
@@ -280,7 +278,6 @@ def logout():
 
 @app.route("/all-opportunities")
 def all_opportunities():
-    print(session.get("name"))
     if not session.get("name"):
         return redirect("/auth/login")
 
@@ -288,11 +285,12 @@ def all_opportunities():
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session["name"],))
-    all = user_crsr.execute("SELECT * FROM users")
-    print(all.fetchall())
+    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session.get("name"),))
     user = user_crsr.fetchone()
     user_connection.close()
+
+    print(user)
+
     if not user or not user["city"]:
         print(user)
         return redirect("/auth/login")

@@ -7,6 +7,29 @@ from SarvAuth import * #Used for user authentication functions
 
 auth_blueprint = Blueprint('auth', __name__)
 
+@auth_blueprint.route('/all-users')
+def all_users():
+    connection = sqlite3.connect("users.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    crsr.execute("SELECT * FROM users")
+    users = crsr.fetchall()
+    connection.close()
+    
+    # Print all users to console
+    print("\n=== All Users in Database ===")
+    for user in users:
+        print(f"ID: {user['id']}")
+        print(f"Username: {user['username']}")
+        print(f"Email: {user['emailAddress']}")
+        print(f"Name: {user['name']}")
+        print(f"City: {user['city']}")
+        print(f"State: {user['state']}")
+        print(f"Date Joined: {user['dateJoined']}")
+        print("------------------------")
+    
+    return render_template('auth/all_users.html', users=users)
+
 @auth_blueprint.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -43,47 +66,81 @@ def signup():
         city = request.form.get('city')
         state = request.form.get('state')
         
+        print("\n=== Attempting to Create New User ===")
+        print(f"Username: {username}")
+        print(f"Email: {email}")
+        print(f"Name: {name}")
+        print(f"City: {city}")
+        print(f"State: {state}")
+        
         if not all([username, password, email, name, city, state]):
             return render_template('auth/signup.html', error='Please fill in all fields')
         
-        connection = sqlite3.connect("users.db")
-        crsr = connection.cursor()
-        
-        # Check if username already exists
-        crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
-        if crsr.fetchone():
-            connection.close()
-            return render_template('auth/signup.html', error='Username already exists')
-        
-        # Check if email already exists
-        crsr.execute("SELECT * FROM users WHERE emailAddress = ?", (email,))
-        if crsr.fetchone():
-            connection.close()
-            return render_template('auth/signup.html', error='Email already registered')
-        
         try:
+            connection = sqlite3.connect("users.db")
+            crsr = connection.cursor()
+            
+            # Check if username already exists
+            crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
+            if crsr.fetchone():
+                connection.close()
+                return render_template('auth/signup.html', error='Username already exists')
+            
+            # Check if email already exists
+            crsr.execute("SELECT * FROM users WHERE emailAddress = ?", (email,))
+            if crsr.fetchone():
+                connection.close()
+                return render_template('auth/signup.html', error='Email already registered')
+            
+            # Get current timestamp
+            current_time = datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S')
+            
             # Insert new user
-            crsr.execute("""
+            insert_query = """
                 INSERT INTO users (
                     username, password, emailAddress, name, city, state, 
                     dateJoined, saved_opportunities
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
+            """
+            insert_values = (
                 username, password, email, name, city, state,
-                datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S'),
-                '[]'
-            ))
+                current_time, '[]'
+            )
             
+            print("\n=== Executing Insert Query ===")
+            print(f"Query: {insert_query}")
+            print(f"Values: {insert_values}")
+            
+            crsr.execute(insert_query, insert_values)
             connection.commit()
-            connection.close()
             
-            # Set session after successful signup
-            session['username'] = username
-            session['name'] = username
-            return redirect('/')
+            # Verify the user was created
+            crsr.execute("SELECT * FROM users WHERE username = ?", (username,))
+            new_user = crsr.fetchone()
+            
+            if new_user:
+                print("\n=== User Successfully Created ===")
+                print(f"User ID: {new_user[0]}")
+                print(f"Username: {new_user[1]}")
+                print(f"Email: {new_user[3]}")
+                print(f"Name: {new_user[4]}")
+                print(f"City: {new_user[5]}")
+                print(f"State: {new_user[6]}")
+                
+                # Set session after successful signup
+                session['username'] = username
+                session['name'] = username
+                connection.close()
+                return redirect('/')
+            else:
+                print("\n=== Error: User not found after creation ===")
+                connection.close()
+                return render_template('auth/signup.html', error='Error creating user: User not found after creation')
             
         except Exception as e:
-            connection.close()
+            print(f"\n=== Error Creating User: {str(e)} ===")
+            if 'connection' in locals():
+                connection.close()
             return render_template('auth/signup.html', error=f'Error creating user: {str(e)}')
     
     return render_template('auth/signup.html')
