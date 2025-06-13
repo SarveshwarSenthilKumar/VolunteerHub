@@ -7,29 +7,6 @@ from SarvAuth import * #Used for user authentication functions
 
 auth_blueprint = Blueprint('auth', __name__)
 
-@auth_blueprint.route('/all-users')
-def all_users():
-    connection = sqlite3.connect("users.db")
-    connection.row_factory = sqlite3.Row
-    crsr = connection.cursor()
-    crsr.execute("SELECT * FROM users")
-    users = crsr.fetchall()
-    connection.close()
-    
-    # Print all users to console
-    print("\n=== All Users in Database ===")
-    for user in users:
-        print(f"ID: {user['id']}")
-        print(f"Username: {user['username']}")
-        print(f"Email: {user['emailAddress']}")
-        print(f"Name: {user['name']}")
-        print(f"City: {user['city']}")
-        print(f"State: {user['state']}")
-        print(f"Date Joined: {user['dateJoined']}")
-        print("------------------------")
-    
-    return render_template('auth/all_users.html', users=users)
-
 @auth_blueprint.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
