@@ -352,15 +352,106 @@ def all_opportunities():
 
     return render_template("all_opportunities.html", opportunities=opportunities)
 
+@app.route("/opportunities", methods=["GET"])
+def search_opportunities():
+    if not session.get("name"):
+        return redirect("/auth/login")
+
+    keyword = request.args.get("keyword", "").strip()
+    city = request.args.get("city", "").strip()
+
+    # Get user id and city if not provided
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session.get("name"),))
+    user = user_crsr.fetchone()
+    user_connection.close()
+
+    if not user:
+        return redirect("/auth/login")
+
+    search_city = city if city else user["city"]
+
+    # Search in the database first
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    query = "SELECT * FROM opportunities WHERE 1=1"
+    params = []
+    if search_city:
+        query += " AND city LIKE ?"
+        params.append(f"%{search_city}%")
+    if keyword:
+        query += " AND (title LIKE ? OR description LIKE ? OR organization_name LIKE ? OR location LIKE ?)"
+        params.extend([f"%{keyword}%"] * 4)
+    query += " ORDER BY created_at DESC"
+    crsr.execute(query, params)
+    opportunities = [dict(row) for row in crsr.fetchall()]
+    connection.close()
+
+    # If no results, fetch from ChatGPT
+    if not opportunities and search_city:
+        def get_opportunities_from_chatgpt_with_keyword(city, keyword):
+            prompt = f"""Generate 5 volunteer opportunities in {city} that match the keyword '{keyword}'. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
+            try:
+                response = openai.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                print(f"Error getting opportunities from ChatGPT: {e}")
+                return None
+        
+        opportunities_text = get_opportunities_from_chatgpt_with_keyword(search_city, keyword)
+        if opportunities_text:
+            parsed_opportunities = extract_opportunity_info(opportunities_text)
+            connection = sqlite3.connect("opportunities.db")
+            crsr = connection.cursor()
+            for opp in parsed_opportunities:
+                crsr.execute("""
+                    SELECT id FROM opportunities 
+                    WHERE organization_name = ? AND title = ? AND description = ?
+                """, (opp["organization_name"], opp["title"], opp["description"]))
+                if not crsr.fetchone():
+                    crsr.execute("""
+                        INSERT INTO opportunities 
+                        (organization_name, title, description, location, city, contact_info, apply_link, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        opp["organization_name"],
+                        opp["title"],
+                        opp["description"],
+                        opp["location"],
+                        opp["city"],
+                        opp["contact_info"],
+                        opp["apply_link"],
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ))
+            connection.commit()
+            # Fetch again after inserting
+            query = "SELECT * FROM opportunities WHERE 1=1"
+            params = []
+            if search_city:
+                query += " AND city LIKE ?"
+                params.append(f"%{search_city}%")
+            if keyword:
+                query += " AND (title LIKE ? OR description LIKE ? OR organization_name LIKE ? OR location LIKE ?)"
+                params.extend([f"%{keyword}%"] * 4)
+            query += " ORDER BY created_at DESC"
+            crsr.execute(query, params)
+            opportunities = [dict(row) for row in crsr.fetchall()]
+            connection.close()
+
+    return render_template("opportunities.html", opportunities=opportunities)
+
 def init_db():
     # Initialize users database
     user_connection = sqlite3.connect("users.db")
     user_crsr = user_connection.cursor()
     
-    # Drop existing users table if it exists
-    user_crsr.execute("DROP TABLE IF EXISTS users")
-    
-    # Create users table with extended schema
+    # Create users table with extended schema if it doesn't exist
     user_crsr.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -381,10 +472,7 @@ def init_db():
     opp_connection = sqlite3.connect("opportunities.db")
     opp_crsr = opp_connection.cursor()
     
-    # Drop existing opportunities table if it exists
-    opp_crsr.execute("DROP TABLE IF EXISTS opportunities")
-    
-    # Create opportunities table with apply_link field
+    # Create opportunities table with apply_link field if it doesn't exist
     opp_crsr.execute("""
         CREATE TABLE IF NOT EXISTS opportunities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -414,7 +502,7 @@ def init_db():
     opp_connection.commit()
     opp_connection.close()
 
-# Call init_db when the app starts
+# Initialize database tables if they don't exist
 init_db()
 
 if autoRun:

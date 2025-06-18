@@ -1,75 +1,211 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 style="color: #fff;">All Opportunities in Your City</h1>
-<div class="opportunities-grid">
-    {% for opportunity in opportunities %}
-    <div class="opportunity-card">
-        <h2>{{ opportunity.title }}</h2>
-        <p><strong>Organization:</strong> {{ opportunity.organization_name }}</p>
-        <p><strong>Location:</strong> {{ opportunity.location }}</p>
-        <p><strong>Description:</strong> {{ opportunity.description }}</p>
-        <p><strong>Contact:</strong> {{ opportunity.contact_info }}</p>
-        <a href="{{ opportunity.apply_link }}" target="_blank" class="button">Apply</a>
+<div class="opportunities-container">
+    <div class="search-header">
+        <h1 style="color: #fff;">All Opportunities in Your City</h1>
+        <div class="search-bar-container">
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Ex: Programming" aria-label="Search volunteer opportunities">
+                <div class="search-tools">
+                    <button class="search-button">Search</button>
+                </div>
+            </div>
+        </div>
     </div>
-    {% endfor %}
+
+    <div class="opportunities-grid">
+        {% for opportunity in opportunities %}
+        <div class="opportunity-card">
+            <h2>{{ opportunity.title }}</h2>
+            <p><strong>Organization:</strong> {{ opportunity.organization_name }}</p>
+            <p><strong>Location:</strong> {{ opportunity.location }}</p>
+            <p><strong>Description:</strong> {{ opportunity.description }}</p>
+            <p><strong>Contact:</strong> {{ opportunity.contact_info }}</p>
+            <a href="{{ opportunity.apply_link }}" target="_blank" class="button">Apply</a>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 
 <style>
 body {
     background: #181a1b;
     color: #e0e0e0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
-.opportunities-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    justify-content: flex-start;
-    margin-top: 24px;
+
+.opportunities-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
 }
-.opportunity-card {
-    background: #23272a;
-    border: 1px solid #23272a;
-    border-radius: 10px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
-    padding: 18px 20px 16px 20px;
-    width: 320px;
+
+.search-header {
+    margin-bottom: 2.5rem;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.search-header h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.search-bar-container {
+    width: 100%;
+    max-width: 600px;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    background: #23272a;
+    border-radius: 12px;
+    padding: 0.5rem 1rem;
+    border: 1px solid #3a3f44;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.search-bar:focus-within {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    background: #2c3136;
+}
+
+.search-bar i {
+    color: #6c757d;
+    margin-right: 0.75rem;
+    font-size: 1rem;
+}
+
+.search-bar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1rem;
+    padding: 0.75rem 0;
+    outline: none;
+}
+
+.search-bar input::placeholder {
+    color: transparent;
+}
+
+.search-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.search-button {
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.search-button:hover {
+    background: #0069d9;
+    transform: translateY(-1px);
+}
+
+.opportunities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.opportunity-card {
+    background: #23272a;
+    border: 1px solid #2c3136;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     color: #e0e0e0;
-    transition: box-shadow 0.2s;
 }
+
 .opportunity-card:hover {
-    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
-    border-color: #444;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    border-color: #3a3f44;
+    transform: translateY(-2px);
 }
+
 .opportunity-card h2 {
     margin-top: 0;
-    font-size: 1.2em;
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
     color: #fff;
 }
+
 .opportunity-card p {
-    margin: 0.5em 0;
-    font-size: 1em;
+    margin: 0.5rem 0;
+    font-size: 0.95rem;
     color: #cfcfcf;
+    line-height: 1.5;
 }
+
+.opportunity-card strong {
+    color: #adb5bd;
+    font-weight: 500;
+}
+
 .button {
-    margin-top: 1em;
+    margin-top: 1rem;
     background: #007bff;
     color: #fff;
     border: none;
-    border-radius: 4px;
-    padding: 8px 16px;
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
     text-decoration: none;
     text-align: center;
     display: inline-block;
-    font-size: 1em;
+    font-size: 0.95rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s ease;
+    width: 100%;
 }
+
 .button:hover {
-    background: #0056b3;
+    background: #0069d9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+    .search-header {
+        flex-direction: column;
+    }
+    
+    .search-bar-container {
+        width: 100%;
+    }
+    
+    .opportunities-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
-{% endblock %} 
+
+<!-- Font Awesome for the search icon -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+{% endblock %}
