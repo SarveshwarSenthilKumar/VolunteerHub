@@ -100,24 +100,6 @@ def extract_opportunity_info(text):
         parsed_opportunities.append(opportunity)
     return parsed_opportunities
 
-@app.route("/opportunities")
-def opportunities():
-    if not session.get("name"):
-        return redirect("/auth/login")
-
-    # Get user city
-    user_connection = sqlite3.connect("users.db")
-    user_connection.row_factory = sqlite3.Row
-    user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT city FROM users WHERE username = ?", (session["name"],))
-    user = user_crsr.fetchone()
-    user_connection.close()
-    if not user or not user["city"]:
-        return redirect("/auth/login")
-
-    # Redirect to /swipe if user is logged in and has a city
-    return redirect("/swipe")
-
 @app.route("/swipe", methods=["GET"])
 def swipe():
     print(session.get("name"))

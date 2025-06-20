@@ -70,15 +70,18 @@
 
     .opportunities-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 2rem;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 2.5rem;
+        margin-bottom: 2rem;
     }
 
     .flip-card {
         background-color: transparent;
         width: 100%;
-        height: 260px;
+        min-height: 440px;
         perspective: 1000px;
+        margin-bottom: 1.5rem;
+        box-sizing: border-box;
     }
 
     .flip-card-inner {
@@ -100,12 +103,14 @@
         height: 100%;
         backface-visibility: hidden;
         background-color: var(--bg-secondary);
-        border-radius: 1rem;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        padding: 1.5rem;
+        border-radius: 1.25rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+        padding: 2.5rem 2rem 2rem 2rem;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     .flip-card-front {
@@ -115,9 +120,13 @@
     .flip-card-back {
         transform: rotateY(180deg);
         z-index: 3;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
+        align-items: flex-start;
+        justify-content: flex-start;
+        text-align: left;
+        overflow-y: auto;
+        max-height: 440px;
+        min-height: 440px;
+        box-sizing: border-box;
     }
 
     .opportunity-title {
@@ -216,6 +225,45 @@
         background-color: var(--accent-primary);
         color: white;
     }
+
+    .back-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        width: 100%;
+    }
+
+    .back-actions .button {
+        flex: 1;
+        text-align: center;
+        font-size: 1.05rem;
+        padding: 0.75rem 1.25rem;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        word-break: break-all;
+        display: block;
+    }
+
+    .back-link-label {
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+        display: block;
+        white-space: normal;
+    }
+
+    .back-link-url {
+        display: inline-block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: bottom;
+        white-space: nowrap;
+        word-break: break-all;
+    }
 </style>
 {% endblock %}
 
@@ -255,23 +303,56 @@
         {% for opportunity in opportunities %}
         <div class="flip-card" onclick="flipCard(this)">
             <div class="flip-card-inner">
-                <div class="flip-card-front">
-                    <div class="opportunity-title">{{ opportunity.organization_name }}</div>
+                <div class="flip-card-front" style="min-height: 440px; padding: 2.5rem 2rem 2rem 2rem; font-size: 1.1rem;">
+                    <div class="opportunity-title" style="font-size: 1.5rem;">{{ opportunity.title }}</div>
                     <div class="organization">{{ opportunity.organization_name }}</div>
-                    <div class="description">{{ opportunity.description }}</div>
-                    <div class="details">
+                    <div class="details" style="margin-bottom: 1.5rem;">
                         <div class="detail">📍 {{ opportunity.city }}</div>
                         <div class="detail">{{ opportunity.location }}</div>
+                        {% if opportunity.duration %}<div class="detail">⏰ {{ opportunity.duration }}</div>{% endif %}
+                        {% if opportunity.volunteers_needed %}<div class="detail">👥 {{ opportunity.volunteers_needed }} needed</div>{% endif %}
+                    </div>
+                    <div class="description" style="max-height: none; display: block; color: var(--text-primary); font-size: 1.05rem; margin-bottom: 1.5rem;">
+                        {{ opportunity.description }}
+                    </div>
+                    <div class="actions" style="margin-top: auto;">
+                        {% if opportunity.apply_link %}
+                        <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank">Apply Now</a>
+                        {% endif %}
+                        {% if opportunity.contact_info %}
+                        <a href="mailto:{{ opportunity.contact_info }}" class="button button-secondary" target="_blank">Contact</a>
+                        {% endif %}
                     </div>
                     <button class="flip-btn" type="button">More Info &rarr;</button>
                 </div>
-                <div class="flip-card-back">
-                    <div style="margin-bottom: 1rem;">
-                        <div class="opportunity-title">Apply / Contact</div>
-                        <div class="detail">{{ opportunity.contact_info }}</div>
+                <div class="flip-card-back" style="min-height: 440px; max-height: 440px; padding: 2.5rem 2rem 2rem 2rem; font-size: 1.1rem; overflow-y: auto; box-sizing: border-box;">
+                    <div class="opportunity-title">Details</div>
+                    <div class="details" style="margin-bottom: 1.5rem;">
+                        <div class="detail">Organization: {{ opportunity.organization_name }}</div>
+                        <div class="detail">Title: {{ opportunity.title }}</div>
+                        <div class="detail">City: {{ opportunity.city }}</div>
+                        <div class="detail">Location: {{ opportunity.location }}</div>
+                        {% if opportunity.duration %}<div class="detail">Duration: {{ opportunity.duration }}</div>{% endif %}
+                        {% if opportunity.volunteers_needed %}<div class="detail">Volunteers Needed: {{ opportunity.volunteers_needed }}</div>{% endif %}
                     </div>
-                    <a href="mailto:{{ opportunity.contact_info }}" class="button button-primary" target="_blank">Contact</a>
-                    <button class="flip-btn" type="button">&larr; Back</button>
+                    <div class="description" style="max-height: none; display: block; color: var(--text-primary); font-size: 1.05rem; margin-bottom: 1.5rem;">
+                        {{ opportunity.description }}
+                    </div>
+                    <div class="back-actions">
+                        {% if opportunity.contact_info %}
+                        <a href="mailto:{{ opportunity.contact_info }}" class="button button-secondary" target="_blank" title="{{ opportunity.contact_info }}">
+                            <span class="back-link-label">Contact</span>
+                            <span class="back-link-url">{{ opportunity.contact_info }}</span>
+                        </a>
+                        {% endif %}
+                        {% if opportunity.apply_link %}
+                        <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank" title="{{ opportunity.apply_link }}">
+                            <span class="back-link-label">Apply Link</span>
+                            <span class="back-link-url">{{ opportunity.apply_link }}</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                    <button class="flip-btn" type="button" style="margin-top: 1.5rem;">&larr; Back</button>
                 </div>
             </div>
         </div>
