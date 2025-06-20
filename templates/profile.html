@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile | VolunteerHub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(120deg, #0a0f1a 0%, #1a2233 100%);
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .profile-container {
+            max-width: 520px;
+            margin: 4rem auto 0 auto;
+            background: rgba(20,30,50,0.97);
+            border-radius: 2rem;
+            box-shadow: 0 8px 40px 0 rgba(59,130,246,0.18);
+            padding: 2.5rem 2rem 2rem 2rem;
+            position: relative;
+        }
+        .profile-title {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            text-align: center;
+            margin-bottom: 2rem;
+            background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .profile-form {
+            background: rgba(30,40,60,0.85);
+            border-radius: 1.2rem;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.10);
+            padding: 1.5rem 1.2rem 1.2rem 1.2rem;
+            margin-bottom: 2.2rem;
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        .form-group label {
+            display: block;
+            color: #bfc9d1;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group input[type="date"] {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 0.7rem;
+            border: none;
+            background: #181f2e;
+            color: #fff;
+            font-size: 1rem;
+        }
+        .form-group input[readonly] {
+            background: #23272a;
+            color: #bfc9d1;
+        }
+        .profile-form button {
+            background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+            color: #fff;
+            border: none;
+            border-radius: 2rem;
+            padding: 0.7rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 0.7rem;
+        }
+        .profile-form button:hover {
+            background: #2563eb;
+        }
+        .resume-section {
+            margin-bottom: 2.2rem;
+            text-align: center;
+        }
+        .resume-label {
+            font-size: 1.1rem;
+            color: #bfc9d1;
+            margin-bottom: 0.7rem;
+            font-weight: 600;
+        }
+        .resume-link {
+            display: inline-block;
+            margin-top: 0.7rem;
+            color: #3b82f6;
+            font-weight: 700;
+            text-decoration: underline;
+            font-size: 1.1rem;
+        }
+        .resume-link:hover {
+            color: #06b6d4;
+        }
+        .upload-form input[type="file"] {
+            background: #181f2e;
+            color: #fff;
+            border: none;
+            border-radius: 0.7rem;
+            padding: 0.7rem;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        .upload-form button {
+            background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+            color: #fff;
+            border: none;
+            border-radius: 2rem;
+            padding: 0.7rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .upload-form button:hover {
+            background: #2563eb;
+        }
+        .message {
+            margin: 1.2rem auto 0 auto;
+            max-width: 420px;
+            background: #23272a;
+            color: #fff;
+            border-radius: 0.7rem;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.07);
+        }
+    </style>
+</head>
+<body>
+    <div class="profile-container">
+        <div class="profile-title">Your Profile</div>
+        <form class="profile-form" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" value="{{ user.username }}" readonly>
+            </div>
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" name="name" value="{{ user.name }}" required>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" value="{{ user.emailaddress }}" required>
+            </div>
+            <div class="form-group">
+                <label>City</label>
+                <input type="text" name="city" value="{{ user.city }}" required>
+            </div>
+            <div class="form-group">
+                <label>State</label>
+                <input type="text" name="state" value="{{ user.state }}" required>
+            </div>
+            <div class="form-group">
+                <label>Birthday</label>
+                <input type="date" name="birthday" value="{{ user.birthday if user.birthday else '' }}">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <div class="password-container" style="position:relative;display:flex;align-items:center;">
+                    <input type="password" name="password" id="password" value="{{ user.password }}" autocomplete="new-password">
+                    <button type="button" class="toggle-password" onclick="togglePassword('password')" style="position:absolute;right:10px;background:none;border:none;color:#bfc9d1;cursor:pointer;padding:5px;">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="resume-section">
+                <div class="resume-label">Resume (PDF only)</div>
+                {% if has_resume %}
+                    <a href="/profile/resume" class="resume-link" target="_blank">View / Download Current Resume</a>
+                {% else %}
+                    <div style="color:#bfc9d1;">No resume uploaded yet.</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <input type="file" name="resume" accept="application/pdf">
+            </div>
+            <button type="submit">Update Profile</button>
+        </form>
+        {% if message %}
+        <div class="message">{{ message }}</div>
+        {% endif %}
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
+    <script>
+    function togglePassword(inputId) {
+        const passwordInput = document.getElementById(inputId);
+        const toggleButton = passwordInput.nextElementSibling;
+        const icon = toggleButton.querySelector('i');
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+    </script>
+</body>
+</html> 

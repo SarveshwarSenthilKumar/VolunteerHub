@@ -56,7 +56,7 @@ def create_users_database():
     # Drop existing tables if they exist
     crsr.execute("DROP TABLE IF EXISTS users")
     
-    # Create users table with all fields
+    # Create users table with all fields, including is_admin and resume
     crsr.execute("""
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +67,9 @@ def create_users_database():
             city TEXT NOT NULL,
             state TEXT NOT NULL,
             dateJoined TEXT NOT NULL,
-            saved_opportunities TEXT DEFAULT '[]'
+            saved_opportunities TEXT DEFAULT '[]',
+            is_admin INTEGER DEFAULT 0,
+            resume BLOB
         )
     """)
     

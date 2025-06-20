@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, jsonify
+from flask import Flask, render_template, request, redirect, session, jsonify, send_file
 from flask_session import Session
 from datetime import datetime, timedelta
 import pytz
@@ -11,6 +11,8 @@ from auth import auth_blueprint
 import re
 import requests
 import time
+import io
+from SarvAuth import checkUserPassword
 
 app = Flask(__name__)
 
@@ -617,7 +619,8 @@ def init_db():
             dateJoined TEXT,
             city TEXT,
             state TEXT,
-            saved_opportunities TEXT DEFAULT '[]'
+            saved_opportunities TEXT DEFAULT '[]',
+            is_admin INTEGER DEFAULT 0
         )
     """)
     user_connection.commit()
@@ -819,39 +822,136 @@ def map_view():
             })
     return render_template("map.html", opportunities=map_opps)
 
-# Hardcoded list of executive admin usernames
-ADMIN_USERNAMES = {"sarveshwarsenthilkumar2"}  # Replace with your actual admin username(s)
-
 @app.route("/_admin_dashboard", methods=["GET", "POST"])
 def admin_dashboard():
     if not session.get("name"):
         return redirect("/auth/login")
-    # Check if user is in the admin list
-    if session.get("name") not in ADMIN_USERNAMES:
+    # Check if user is admin in DB
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT is_admin FROM users WHERE username = ?", (session.get("name"),))
+    user = user_crsr.fetchone()
+    if not user or not user["is_admin"]:
+        user_connection.close()
         return "Access denied", 403
 
-    # Handle admin promotion (in-memory, demo only)
+    # Handle admin promotion (persistent)
     message = None
     if request.method == "POST":
         promote_username = request.form.get("promote_username", "").strip()
         if promote_username:
-            # In a real app, persist this in DB or config
-            ADMIN_USERNAMES.add(promote_username)
-            message = f"User '{promote_username}' is now an admin (for this session/demo only)."
+            user_crsr.execute("SELECT * FROM users WHERE username = ?", (promote_username,))
+            promote_user = user_crsr.fetchone()
+            if promote_user:
+                user_crsr.execute("UPDATE users SET is_admin = 1 WHERE username = ?", (promote_username,))
+                user_connection.commit()
+                message = f"User '{promote_username}' is now an admin."
+            else:
+                message = f"User '{promote_username}' not found."
     # Get stats
-    user_connection = sqlite3.connect("users.db")
-    user_connection.row_factory = sqlite3.Row
-    user_crsr = user_connection.cursor()
     user_crsr.execute("SELECT COUNT(*) FROM users")
     total_users = user_crsr.fetchone()[0]
+    user_crsr.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1")
+    total_admins = user_crsr.fetchone()[0]
     user_connection.close()
     opp_connection = sqlite3.connect("opportunities.db")
     opp_crsr = opp_connection.cursor()
     opp_crsr.execute("SELECT COUNT(*) FROM opportunities")
     total_opps = opp_crsr.fetchone()[0]
     opp_connection.close()
-    total_admins = len(ADMIN_USERNAMES)
     return render_template("admin_dashboard.html", total_users=total_users, total_admins=total_admins, total_opps=total_opps, message=message)
+
+@app.route("/profile", methods=["GET", "POST"])
+def profile():
+    if not session.get("name"):
+        return redirect("/auth/login")
+    message = None
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    # Ensure birthday column exists
+    try:
+        user_crsr.execute("ALTER TABLE users ADD COLUMN birthday TEXT")
+    except Exception:
+        pass
+    # Fetch user info
+    user_crsr.execute("SELECT * FROM users WHERE username = ?", (session.get("name"),))
+    user = user_crsr.fetchone()
+    if not user:
+        user_connection.close()
+        return redirect("/auth/login")
+    # Handle info/resume update
+    if request.method == "POST":
+        # Info update
+        name = request.form.get("name", user["name"])
+        email = request.form.get("email", user["emailaddress"])
+        city = request.form.get("city", user["city"])
+        state = request.form.get("state", user["state"])
+        birthday = request.form.get("birthday", user["birthday"] if "birthday" in user.keys() else None)
+        password = request.form.get("password", None)
+        update_fields = []
+        update_values = []
+        if name != user["name"]:
+            update_fields.append("name = ?")
+            update_values.append(name)
+        if email != user["emailaddress"]:
+            update_fields.append("emailaddress = ?")
+            update_values.append(email)
+        if city != user["city"]:
+            update_fields.append("city = ?")
+            update_values.append(city)
+        if state != user["state"]:
+            update_fields.append("state = ?")
+            update_values.append(state)
+        if birthday and (not user["birthday"] or birthday != user["birthday"]):
+            update_fields.append("birthday = ?")
+            update_values.append(birthday)
+        if password and password != user["password"]:
+            valid = checkUserPassword(user["username"], password)
+            if not (isinstance(valid, list) and valid[0] is True):
+                message = valid[1] if isinstance(valid, tuple) or isinstance(valid, list) and len(valid) > 1 else "Password does not meet requirements."
+            else:
+                update_fields.append("password = ?")
+                update_values.append(password)
+        # Resume upload
+        if "resume" in request.files:
+            file = request.files["resume"]
+            if file and file.filename.lower().endswith(".pdf"):
+                resume_data = file.read()
+                if resume_data:
+                    update_fields.append("resume = ?")
+                    update_values.append(resume_data)
+            elif file and file.filename:
+                message = "Only PDF files are allowed."
+        if update_fields and (not message or message == "Profile updated successfully."):
+            update_values.append(session.get("name"))
+            user_crsr.execute(f"UPDATE users SET {', '.join(update_fields)} WHERE username = ?", update_values)
+            user_connection.commit()
+            if not message:
+                message = "Profile updated successfully."
+        elif not message:
+            message = "No changes made."
+        # Re-fetch user after update
+        user_crsr.execute("SELECT * FROM users WHERE username = ?", (session.get("name"),))
+        user = user_crsr.fetchone()
+    has_resume = user["resume"] is not None
+    user_connection.close()
+    return render_template("profile.html", user=user, has_resume=has_resume, message=message)
+
+@app.route("/profile/resume")
+def download_resume():
+    if not session.get("name"):
+        return redirect("/auth/login")
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT resume FROM users WHERE username = ?", (session.get("name"),))
+    user = user_crsr.fetchone()
+    user_connection.close()
+    if user and user["resume"]:
+        return send_file(io.BytesIO(user["resume"]), mimetype="application/pdf", as_attachment=True, download_name="resume.pdf")
+    return "No resume found.", 404
 
 # Initialize database tables if they don't exist
 init_db()
