@@ -228,7 +228,7 @@ def swipe_action():
     user_connection.close()
     return jsonify({"success": True})
 
-@app.route("/saved", methods=["GET", "POST"])
+@app.route("/saved", methods=["GET"])
 def saved():
     if not session.get("name"):
         return redirect("/auth/login")
@@ -242,21 +242,6 @@ def saved():
     user_connection.close()
     if not user:
         return redirect("/auth/login")
-
-    if request.method == "POST":
-        data = request.get_json()
-        if data and data.get("action") == "remove" and data.get("opportunity_id"):
-            opportunity_id = data.get("opportunity_id")
-            saved_opportunities = json.loads(user["saved_opportunities"])
-            if opportunity_id in saved_opportunities:
-                saved_opportunities.remove(opportunity_id)
-                user_connection = sqlite3.connect("users.db")
-                user_crsr = user_connection.cursor()
-                user_crsr.execute("UPDATE users SET saved_opportunities = ? WHERE id = ?", (json.dumps(saved_opportunities), user["id"]))
-                user_connection.commit()
-                user_connection.close()
-                return jsonify({"success": True})
-        return jsonify({"success": False})
 
     # Get saved opportunities
     saved_opportunities = json.loads(user["saved_opportunities"])
@@ -495,6 +480,40 @@ def fetch_opportunities_background():
         return jsonify({"success": True})
     else:
         return jsonify({"success": False, "error": "Failed to fetch from ChatGPT"})
+
+@app.route("/removesaved", methods=["POST"])
+def remove_saved():
+    if not session.get("name"):
+        return jsonify({"error": "Not logged in"}), 401
+    
+    data = request.get_json()
+    if not data or not data.get("opportunity_id"):
+        return jsonify({"error": "Missing opportunity_id"}), 400
+    
+    opportunity_id = data.get("opportunity_id")
+    
+    # Get user and their saved opportunities
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT id, saved_opportunities FROM users WHERE username = ?", (session["name"],))
+    user = user_crsr.fetchone()
+    
+    if not user:
+        user_connection.close()
+        return jsonify({"error": "User not found"}), 404
+    
+    # Remove the opportunity from saved list
+    saved_opportunities = json.loads(user["saved_opportunities"] or "[]")
+    if str(opportunity_id) in saved_opportunities:
+        saved_opportunities.remove(str(opportunity_id))
+        user_crsr.execute("UPDATE users SET saved_opportunities = ? WHERE id = ?", (json.dumps(saved_opportunities), user["id"]))
+        user_connection.commit()
+        user_connection.close()
+        return jsonify({"success": True})
+    else:
+        user_connection.close()
+        return jsonify({"error": "Opportunity not found in saved list"}), 404
 
 def init_db():
     # Initialize users database

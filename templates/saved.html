@@ -142,13 +142,12 @@
 
 <script>
 function removeSaved(opportunityId) {
-    fetch('/saved', {
+    fetch('/removesaved', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            action: 'remove',
             opportunity_id: opportunityId
         })
     })
@@ -157,7 +156,7 @@ function removeSaved(opportunityId) {
         if (data.success) {
             location.reload();
         } else {
-            alert('Failed to remove opportunity.');
+            alert('Failed to remove opportunity: ' + (data.error || 'Unknown error'));
         }
     })
     .catch(error => {
