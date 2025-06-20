@@ -9,6 +9,7 @@ import json
 from SarvAuth import * #Used for user authentication functions
 from auth import auth_blueprint
 import re
+import requests
 
 app = Flask(__name__)
 
@@ -138,6 +139,7 @@ def swipe():
         if opportunities_text:
             parsed_opportunities = extract_opportunity_info(opportunities_text)
             connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
             crsr = connection.cursor()
             inserted_count = 0
             for opp in parsed_opportunities:
@@ -272,6 +274,7 @@ def all_opportunities():
         if opportunities_text:
             parsed_opportunities = extract_opportunity_info(opportunities_text)
             connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
             crsr = connection.cursor()
             inserted_count = 0
             for opp in parsed_opportunities:
@@ -323,20 +326,44 @@ def search_opportunities():
     query = "SELECT * FROM opportunities WHERE 1=1"
     params = []
     if search_city:
-        query += " AND city LIKE ?"
-        params.append(f"%{search_city}%")
+        query += " AND LOWER(city) LIKE ?"
+        params.append(f"%{search_city.lower()}%")
     if keyword:
-        query += " AND (title LIKE ? OR description LIKE ? OR organization_name LIKE ? OR location LIKE ?)"
-        params.extend([f"%{keyword}%"] * 4)
+        query += " AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)"
+        params.extend([f"%{keyword.lower()}%"] * 4)
     query += " ORDER BY created_at DESC"
+    print("QUERY:", query)
+    print("PARAMS:", params)
     crsr.execute(query, params)
     opportunities = [dict(row) for row in crsr.fetchall()]
     connection.close()
 
-    # If no results, fetch from ChatGPT
-    if not opportunities and search_city:
+    # --- ChatGPT fallback for new opportunities (commented out for demo) ---
+    
+    if search_city:
         def get_opportunities_from_chatgpt_with_keyword(city, keyword):
-            prompt = f"""Generate 5 volunteer opportunities in {city} that match the keyword '{keyword}'. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
+            prompt = f"""
+Generate 5 real, currently active, and verifiable volunteer opportunities in {city} that match the keyword '{keyword}'. For each opportunity, provide the following information in this exact format:
+
+Organization Name: [Name]
+Title: [Title]
+Description: [Description]
+City: [City]
+Location: [Location]
+Duration: [Duration]
+Volunteers Needed: [Number]
+Contact Info: [Contact Info]
+Apply Link: [Apply Link]
+
+IMPORTANT INSTRUCTIONS:
+- Only include opportunities from well-known, reputable, and established organizations (such as United Way, Red Cross, Habitat for Humanity, local government, or major nonprofits).
+- The Apply Link must be a real, working, and direct URL to an actual volunteer opportunity or application page (not just the organization's homepage).
+- Do NOT include any links that are placeholders, made up, or that return a 404 or 'not found' error.
+- Do NOT use example.com, volunteerhub.com, or any fake or generic links.
+- Double-check that each link is valid and leads to a real opportunity.
+- Do NOT include any fictional or placeholder data.
+- Separate each opportunity with a blank line.
+"""
             try:
                 response = openai.chat.completions.create(
                     model="gpt-3.5-turbo",
@@ -346,31 +373,56 @@ def search_opportunities():
             except Exception as e:
                 print(f"Error getting opportunities from ChatGPT: {e}")
                 return None
-        
-        opportunities_text = get_opportunities_from_chatgpt_with_keyword(search_city, keyword)
-        if opportunities_text:
-            parsed_opportunities = extract_opportunity_info(opportunities_text)
+
+        max_retries = 3
+        all_valid_opps = []
+        seen_links = set()
+        for attempt in range(max_retries):
+            opportunities_text = get_opportunities_from_chatgpt_with_keyword(search_city, keyword)
+            if opportunities_text:
+                parsed_opportunities = extract_opportunity_info(opportunities_text)
+                for opp in parsed_opportunities:
+                    link = opp.get('apply_link')
+                    if link and is_valid_url(link):
+                        # Only add unique links
+                        normalized_link = link.lower().strip()
+                        if normalized_link not in seen_links:
+                            all_valid_opps.append(opp)
+                            seen_links.add(normalized_link)
+            if len(all_valid_opps) >= 5:
+                break
+        if all_valid_opps:
             connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
             crsr = connection.cursor()
             inserted_count = 0
-            for opp in parsed_opportunities:
+            for opp in all_valid_opps:
                 if insert_opportunity_safely(crsr, opp):
                     inserted_count += 1
             connection.commit()
-            print(f"Inserted {inserted_count} new opportunities for {search_city} with keyword '{keyword}'")
-            # Fetch again after inserting
-            query = "SELECT * FROM opportunities WHERE 1=1"
-            params = []
-            if search_city:
-                query += " AND city LIKE ?"
-                params.append(f"%{search_city}%")
-            if keyword:
-                query += " AND (title LIKE ? OR description LIKE ? OR organization_name LIKE ? OR location LIKE ?)"
-                params.extend([f"%{keyword}%"] * 4)
-            query += " ORDER BY created_at DESC"
-            crsr.execute(query, params)
-            opportunities = [dict(row) for row in crsr.fetchall()]
+            print(f"Inserted {inserted_count} new opportunities for {search_city} with keyword '{keyword}' (after retries)")
             connection.close()
+    
+    # --- End ChatGPT fallback (commented out for demo) ---
+
+    # After inserting, always fetch and display all matching results
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    query = "SELECT * FROM opportunities WHERE 1=1"
+    params = []
+    if search_city:
+        query += " AND LOWER(city) LIKE ?"
+        params.append(f"%{search_city.lower()}%")
+    if keyword:
+        query += " AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)"
+        params.extend([f"%{keyword.lower()}%"] * 4)
+    query += " ORDER BY created_at DESC"
+    print("QUERY:", query)
+    print("PARAMS:", params)
+    crsr.execute(query, params)
+    opportunities = [dict(row) for row in crsr.fetchall()]
+    connection.close()
 
     return render_template("opportunities.html", opportunities=opportunities)
 
@@ -395,6 +447,7 @@ def fetch_opportunities_background():
     if opportunities_text:
         parsed_opportunities = extract_opportunity_info(opportunities_text)
         connection = sqlite3.connect("opportunities.db")
+        connection.row_factory = sqlite3.Row
         crsr = connection.cursor()
         inserted_count = 0
         for opp in parsed_opportunities:
@@ -633,6 +686,15 @@ def cleanup_duplicates_route():
         return jsonify({"success": True, "removed_count": removed_count})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+def is_valid_url(url):
+    try:
+        if not url.startswith('http://') and not url.startswith('https://'):
+            url = 'https://' + url
+        resp = requests.head(url, allow_redirects=True, timeout=5)
+        return resp.status_code in (200, 301, 302, 307, 308, 403)
+    except Exception:
+        return False
 
 # Initialize database tables if they don't exist
 init_db()

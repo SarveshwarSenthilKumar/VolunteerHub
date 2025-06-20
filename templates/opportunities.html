@@ -317,7 +317,7 @@
                     </div>
                     <div class="actions" style="margin-top: auto;">
                         {% if opportunity.apply_link %}
-                        <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank">Apply Now</a>
+                        <a href="{{ absolute_url(opportunity.apply_link) }}" class="button button-primary" target="_blank">Apply Now</a>
                         {% endif %}
                         {% if opportunity.contact_info %}
                         <a href="mailto:{{ opportunity.contact_info }}" class="button button-secondary" target="_blank">Contact</a>
@@ -346,7 +346,7 @@
                         </a>
                         {% endif %}
                         {% if opportunity.apply_link %}
-                        <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank" title="{{ opportunity.apply_link }}">
+                        <a href="{{ absolute_url(opportunity.apply_link) }}" class="button button-primary" target="_blank" title="{{ opportunity.apply_link }}">
                             <span class="back-link-label">Apply Link</span>
                             <span class="back-link-url">{{ opportunity.apply_link }}</span>
                         </a>
@@ -383,5 +383,32 @@
             flipCard(this.closest('.flip-card'));
         });
     });
+
+    function runBackgroundSearch() {
+        const params = new URLSearchParams(window.location.search);
+        fetch('/opportunities?' + params.toString(), {
+            method: 'GET',
+            headers: { 'X-Background-Search': '1' }
+        })
+        .then(response => {
+            // Optionally handle background response
+            // console.log('Background search complete');
+        });
+    }
+
+    // Run background search on page load and whenever the search form is submitted
+    window.addEventListener('DOMContentLoaded', function() {
+        runBackgroundSearch();
+        const form = document.querySelector('.search-form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                setTimeout(runBackgroundSearch, 100); // Run after form submission
+            });
+        }
+    });
 </script>
-{% endblock %} 
+{% endblock %}
+
+{% macro absolute_url(url) %}
+    {% if url.startswith('http://') or url.startswith('https://') %}{{ url }}{% else %}https://{{ url }}{% endif %}
+{% endmacro %} 
