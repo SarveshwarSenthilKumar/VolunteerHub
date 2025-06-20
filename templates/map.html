@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VolunteerHub | Opportunity Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: #0a0f1a;
+            color: #f8fafc;
+        }
+        .map-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        #map {
+            width: 100vw;
+            height: 100vh;
+            min-height: 500px;
+            border-radius: 0 0 2rem 2rem;
+            box-shadow: 0 8px 32px rgba(59,130,246,0.15);
+            z-index: 1;
+            position: relative;
+        }
+        .map-title {
+            position: absolute;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(37,99,235,0.95);
+            color: #fff;
+            padding: 1rem 2.5rem;
+            border-radius: 2rem;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            box-shadow: 0 4px 24px rgba(59,130,246,0.18);
+            z-index: 1000;
+            text-align: center;
+        }
+        .search-form {
+            position: absolute;
+            top: 5.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1100;
+            max-width: 600px;
+            width: 90%;
+            background: rgba(20,30,50,0.7);
+            border-radius: 1.2rem;
+            box-shadow: 0 4px 24px rgba(59,130,246,0.10);
+            padding: 0.7rem 1.2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.7rem;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.92;
+        }
+        .search-form input[type="text"] {
+            flex: 2;
+            min-width: 120px;
+            padding: 0.5rem 1rem;
+            border-radius: 0.7rem;
+            border: none;
+            font-size: 1rem;
+            background: #181f2e;
+            color: #fff;
+            outline: none;
+            opacity: 0.85;
+        }
+        .event-type-filters {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .event-type-checkbox {
+            font-size: 0.95rem;
+            color: #bfc9d1;
+            background: rgba(30,40,60,0.5);
+            border-radius: 0.5rem;
+            padding: 0.2rem 0.7rem;
+            display: flex;
+            align-items: center;
+        }
+        .event-type-checkbox input[type="checkbox"] {
+            margin-right: 0.3rem;
+        }
+        .button.button-primary {
+            padding: 0.5rem 1.2rem;
+            font-size: 1rem;
+            border-radius: 0.7rem;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            opacity: 0.93;
+        }
+        .button.button-primary:hover {
+            background: #2563eb;
+        }
+        .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            width: 60px;
+            height: 60px;
+            border: 6px solid #3b82f6;
+            border-top: 6px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        .leaflet-popup-content-wrapper {
+            background: #23272a;
+            color: #f8fafc;
+            border-radius: 1rem;
+            box-shadow: 0 4px 16px rgba(59,130,246,0.13);
+        }
+        .leaflet-popup-content h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1rem;
+            color: #3b82f6;
+        }
+        .leaflet-popup-content p {
+            margin: 0.2rem 0;
+            color: #bfc9d1;
+            font-size: 0.97rem;
+        }
+        .leaflet-popup-content a {
+            color: #3b82f6;
+            text-decoration: underline;
+            font-weight: 600;
+        }
+        .leaflet-control-attribution {
+            display: none;
+        }
+        @media (max-width: 600px) {
+            .map-title {
+                font-size: 1.2rem;
+                padding: 0.7rem 1.2rem;
+            }
+            .search-form {
+                top: 4.2rem;
+                padding: 0.5rem 0.5rem;
+            }
+        }
+        .back-home-btn {
+            position: absolute;
+            top: 1.5rem;
+            left: 2rem;
+            z-index: 1200;
+            background: rgba(37,99,235,0.95);
+            color: #fff;
+            border: none;
+            border-radius: 1.5rem;
+            padding: 0.7rem 1.7rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.13);
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+        }
+        .back-home-btn:hover {
+            background: #2563eb;
+            color: #fff;
+        }
+        .no-results-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30,40,60,0.97);
+            color: #fff;
+            padding: 2rem 2.5rem;
+            border-radius: 1.2rem;
+            font-size: 1.2rem;
+            z-index: 2100;
+            box-shadow: 0 4px 24px rgba(59,130,246,0.13);
+            display: none;
+        }
+        .auto-focus-toggle {
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            z-index: 1200;
+            background: #fff;
+            color: #2563eb;
+            border: 2px solid #2563eb;
+            border-radius: 1.5rem;
+            padding: 0.7rem 1.7rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.13);
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .auto-focus-toggle.active, .auto-focus-toggle:hover {
+            background: #2563eb;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="map-container">
+        <a href="/" class="back-home-btn">&larr; Back to Home</a>
+        <button id="autoFocusToggle" class="auto-focus-toggle active" type="button">Auto-Focus: On</button>
+        <div class="map-title">Volunteer Opportunities in Your City</div>
+        <form method="GET" action="/map" class="search-form">
+            <input type="text" name="keyword" placeholder="Search by keyword..." value="{{ request.args.get('keyword', '') }}">
+            <div class="event-type-filters">
+                <label class="event-type-checkbox"><input type="checkbox" name="include_conferences" value="1" {% if request.args.get('include_conferences') %}checked{% endif %}><span>Conferences</span></label>
+                <label class="event-type-checkbox"><input type="checkbox" name="include_hackathons" value="1" {% if request.args.get('include_hackathons') %}checked{% endif %}><span>Hackathons</span></label>
+                <label class="event-type-checkbox"><input type="checkbox" name="include_contests" value="1" {% if request.args.get('include_contests') %}checked{% endif %}><span>Contests</span></label>
+                <label class="event-type-checkbox"><input type="checkbox" name="include_competitions" value="1" {% if request.args.get('include_competitions') %}checked{% endif %}><span>Competitions</span></label>
+                <label class="event-type-checkbox"><input type="checkbox" name="include_meetups" value="1" {% if request.args.get('include_meetups') %}checked{% endif %}><span>Meetups</span></label>
+            </div>
+            <button type="submit" class="button button-primary">Search</button>
+        </form>
+        <div id="map"></div>
+        <div id="loading-spinner" class="loading-spinner" style="display:none;"></div>
+        <div id="no-results-message" class="no-results-message">No opportunities found for your search, or map could not be loaded.<br>Please try a different search or check your connection.</div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script>
+        var opportunities = [
+            {% for opp in opportunities %}
+            {
+                title: {{ opp.title|tojson }},
+                organization_name: {{ opp.organization_name|tojson }},
+                description: {{ opp.description|tojson }},
+                apply_link: {{ opp.apply_link|tojson }},
+                lat: {{ opp.lat|tojson }},
+                lng: {{ opp.lng|tojson }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        var defaultLat = 40.7128;
+        var defaultLng = -74.0060;
+        var map = L.map('map', {
+            zoomControl: true,
+            scrollWheelZoom: true,
+            attributionControl: false
+        }).setView([defaultLat, defaultLng], 12);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        var markerIcon = L.icon({
+            iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-blue.png',
+            iconSize: [30, 48],
+            iconAnchor: [15, 48],
+            popupAnchor: [0, -40]
+        });
+
+        var autoFocus = true;
+        var markers = [];
+
+        function showSpinner() {
+            document.getElementById('loading-spinner').style.display = '';
+            document.getElementById('no-results-message').style.display = 'none';
+        }
+        function hideSpinner() {
+            document.getElementById('loading-spinner').style.display = 'none';
+        }
+        function showNoResults() {
+            document.getElementById('no-results-message').style.display = '';
+        }
+        function hideNoResults() {
+            document.getElementById('no-results-message').style.display = 'none';
+        }
+
+        // Remove all existing markers from the map
+        function clearMarkers() {
+            markers.forEach(function(m) { map.removeLayer(m); });
+            markers = [];
+        }
+
+        // Plot all opportunities using lat/lng from backend
+        function plotOpportunities(opps) {
+            showSpinner();
+            hideNoResults();
+            clearMarkers();
+            var bounds = [];
+            var firstLatLng = null;
+            var markerCount = 0;
+            if (opps.length === 0) {
+                hideSpinner();
+                showNoResults();
+                return;
+            }
+            opps.forEach(function(opp, idx) {
+                if (opp.lat && opp.lng) {
+                    var latlng = [opp.lat, opp.lng];
+                    var popupContent = `
+                        <h3>${opp.title}</h3>
+                        <p><strong>Organization:</strong> ${opp.organization_name}</p>
+                        <p>${opp.description}</p>
+                        <a href="${opp.apply_link}" target="_blank">Apply Now</a>
+                    `;
+                    var marker = L.marker(latlng, {icon: markerIcon}).addTo(map).bindPopup(popupContent);
+                    markers.push(marker);
+                    bounds.push(latlng);
+                    if (!firstLatLng) firstLatLng = latlng;
+                    markerCount++;
+                }
+            });
+            hideSpinner();
+            if (bounds.length > 0 && autoFocus) {
+                if (bounds.length === 1) {
+                    map.setView(firstLatLng, 13);
+                } else {
+                    map.fitBounds(bounds, {padding: [50, 50]});
+                }
+            } else if (bounds.length === 0) {
+                showNoResults();
+            }
+        }
+        plotOpportunities(opportunities);
+
+        // Auto-focus toggle logic
+        var autoFocusBtn = document.getElementById('autoFocusToggle');
+        autoFocusBtn.addEventListener('click', function() {
+            autoFocus = !autoFocus;
+            if (autoFocus) {
+                autoFocusBtn.classList.add('active');
+                autoFocusBtn.textContent = 'Auto-Focus: On';
+                // Re-fit to bounds if markers exist
+                var markerLatLngs = markers.map(function(m) { return m.getLatLng(); });
+                if (markerLatLngs.length === 1) {
+                    map.setView(markerLatLngs[0], 13);
+                } else if (markerLatLngs.length > 1) {
+                    map.fitBounds(markerLatLngs, {padding: [50, 50]});
+                }
+            } else {
+                autoFocusBtn.classList.remove('active');
+                autoFocusBtn.textContent = 'Auto-Focus: Off';
+            }
+        });
+    </script>
+</body>
+</html> 

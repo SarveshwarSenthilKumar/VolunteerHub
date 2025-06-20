@@ -43,7 +43,7 @@ def signup():
         city = request.form.get('city')
         state = request.form.get('state')
         
-        print("\n=== Attempting to Create New User ===")
+        print(" == Attempting to Create New User ===")
         print(f"Username: {username}")
         print(f"Email: {email}")
         print(f"Name: {name}")

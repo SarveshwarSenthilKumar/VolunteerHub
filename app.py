@@ -10,6 +10,7 @@ from SarvAuth import * #Used for user authentication functions
 from auth import auth_blueprint
 import re
 import requests
+import time
 
 app = Flask(__name__)
 
@@ -724,6 +725,99 @@ def is_valid_url(url):
         return resp.status_code in (200, 301, 302, 307, 308, 403)
     except Exception:
         return False
+
+def geocode_address(address):
+    """Geocode an address using Nominatim and return (lat, lng) or (None, None) if not found."""
+    try:
+        url = f"https://nominatim.openstreetmap.org/search"
+        params = {"q": address, "format": "json", "limit": 1}
+        headers = {"User-Agent": "VolunteerHub/1.0 (contact@volunteerhub.com)"}
+        resp = requests.get(url, params=params, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data:
+                return float(data[0]["lat"]), float(data[0]["lon"])
+    except Exception as e:
+        print(f"Geocoding error for '{address}': {e}")
+    return None, None
+
+@app.route("/map", methods=["GET"])
+def map_view():
+    if not session.get("name"):
+        return redirect("/auth/login")
+
+    # Get user id and city
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session.get("name"),))
+    user = user_crsr.fetchone()
+    user_connection.close()
+    if not user or not user["city"]:
+        return redirect("/auth/login")
+
+    # Get search/filter params
+    keyword = request.args.get("keyword", "").strip()
+    include_types = []
+    if request.args.get('include_conferences'): include_types.append('conference')
+    if request.args.get('include_hackathons'): include_types.append('hackathon')
+    if request.args.get('include_contests'): include_types.append('contest')
+    if request.args.get('include_competitions'): include_types.append('competition')
+    if request.args.get('include_meetups'): include_types.append('meetup')
+    all_keywords = [keyword] if keyword else []
+    all_keywords += include_types
+
+    # Query all opportunities in user's city, with filtering
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ?"
+    params = [f"%{user['city'].lower()}%"]
+    if all_keywords:
+        keyword_clauses = []
+        keyword_params = []
+        for kw in all_keywords:
+            if kw:
+                keyword_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)")
+                keyword_params.extend([f"%{kw.lower()}%"] * 4)
+        if keyword_clauses:
+            query += " AND (" + " OR ".join(keyword_clauses) + ")"
+            params.extend(keyword_params)
+    query += " ORDER BY created_at DESC"
+    crsr.execute(query, params)
+    opportunities = [dict(row) for row in crsr.fetchall()]
+    connection.close()
+
+    # Geocode addresses using Google Maps API, do NOT update DB
+    GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+    def geocode_address_google(address):
+        try:
+            url = "https://maps.googleapis.com/maps/api/geocode/json"
+            params = {"address": address, "key": GOOGLE_MAPS_API_KEY}
+            resp = requests.get(url, params=params, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("status") == "OK" and data["results"]:
+                    loc = data["results"][0]["geometry"]["location"]
+                    return float(loc["lat"]), float(loc["lng"])
+        except Exception as e:
+            print(f"Google Maps geocoding error for '{address}': {e}")
+        return None, None
+
+    map_opps = []
+    for opp in opportunities:
+        address = f"{opp.get('location', '')}, {opp.get('city', '')}"
+        lat, lng = geocode_address_google(address)
+        if lat and lng:
+            map_opps.append({
+                "title": opp["title"],
+                "organization_name": opp["organization_name"],
+                "description": opp["description"],
+                "apply_link": opp["apply_link"],
+                "lat": lat,
+                "lng": lng
+            })
+    return render_template("map.html", opportunities=map_opps)
 
 # Initialize database tables if they don't exist
 init_db()
