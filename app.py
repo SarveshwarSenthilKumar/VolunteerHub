@@ -71,7 +71,7 @@ Separate each opportunity with a blank line. Ensure that the Apply Link is a val
         print(f"Error getting opportunities from ChatGPT: {e}")
         return None
 
-def extract_opportunity_info(text):
+def extract_opportunity_info(text, user_state=None):
     # Split the text into individual opportunities
     opportunities = text.split('\n\n')
     parsed_opportunities = []
@@ -84,6 +84,7 @@ def extract_opportunity_info(text):
             "title": re.search(r"Title:\s*(.*?)(?:\n|$)", opp),
             "description": re.search(r"Description:\s*(.*?)(?:\n|$)", opp),
             "city": re.search(r"City:\s*(.*?)(?:\n|$)", opp),
+            "state": re.search(r"State:\s*(.*?)(?:\n|$)", opp),
             "location": re.search(r"Location:\s*(.*?)(?:\n|$)", opp),
             "duration": re.search(r"Duration:\s*(.*?)(?:\n|$)", opp),
             "volunteers_needed": re.search(r"Volunteers Needed:\s*(\d+)", opp),
@@ -95,6 +96,7 @@ def extract_opportunity_info(text):
             "title": fields["title"].group(1).strip() if fields["title"] else "Untitled Opportunity",
             "description": fields["description"].group(1).strip() if fields["description"] else "No description provided",
             "city": fields["city"].group(1).strip() if fields["city"] else "Unknown City",
+            "state": fields["state"].group(1).strip() if fields["state"] else (user_state or "Unknown State"),
             "location": fields["location"].group(1).strip() if fields["location"] else "Unknown Location",
             "duration": fields["duration"].group(1).strip() if fields["duration"] else "Not specified",
             "volunteers_needed": int(fields["volunteers_needed"].group(1)) if fields["volunteers_needed"] else 1,
@@ -114,9 +116,14 @@ def swipe():
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session["name"],))
+    user_crsr.execute("SELECT id, city, state FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
+
+    print(user)
+
+    if not user or not user["city"]:
+        return redirect("/auth/login")
 
     max_retries = 3
     retries = 0
@@ -140,7 +147,7 @@ def swipe():
         # If none, fetch and store new ones
         opportunities_text = get_opportunities_from_chatgpt(user["city"])
         if opportunities_text:
-            parsed_opportunities = extract_opportunity_info(opportunities_text)
+            parsed_opportunities = extract_opportunity_info(opportunities_text, user["state"])
             connection = sqlite3.connect("opportunities.db")
             connection.row_factory = sqlite3.Row
             crsr = connection.cursor()
@@ -477,7 +484,7 @@ def fetch_opportunities_background():
     # Fetch new opportunities from ChatGPT
     opportunities_text = get_opportunities_from_chatgpt(user["city"])
     if opportunities_text:
-        parsed_opportunities = extract_opportunity_info(opportunities_text)
+        parsed_opportunities = extract_opportunity_info(opportunities_text, user["state"])
         connection = sqlite3.connect("opportunities.db")
         connection.row_factory = sqlite3.Row
         crsr = connection.cursor()
@@ -579,7 +586,7 @@ def is_duplicate_opportunity(crsr, opportunity):
 
 def insert_opportunity_safely(crsr, opportunity):
     """Safely insert an opportunity, checking for duplicates first"""
-    if not opportunity or not all(opportunity.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"]):
+    if not opportunity or not all(opportunity.get(field) for field in ["title", "organization_name", "description", "location", "apply_link", "state"]):
         return False
     
     # Check for duplicates
@@ -589,14 +596,15 @@ def insert_opportunity_safely(crsr, opportunity):
     # Insert the opportunity
     crsr.execute("""
         INSERT INTO opportunities 
-        (organization_name, title, description, location, city, contact_info, apply_link, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (organization_name, title, description, location, city, state, contact_info, apply_link, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         opportunity["organization_name"].strip(),
         opportunity["title"].strip(),
         opportunity["description"].strip(),
         opportunity["location"].strip(),
         opportunity["city"].strip(),
+        opportunity["state"].strip() if opportunity.get("state") else "Unknown State",
         opportunity["contact_info"].strip(),
         opportunity["apply_link"].strip(),
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")

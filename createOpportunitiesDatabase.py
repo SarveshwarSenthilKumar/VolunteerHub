@@ -22,8 +22,10 @@ def create_opportunities_database():
             location TEXT NOT NULL,
             city TEXT NOT NULL,
             state TEXT NOT NULL,
+            duration TEXT,
+            volunteers_needed INTEGER,
             contact_info TEXT,
-            website TEXT,
+            apply_link TEXT,
             created_at TEXT NOT NULL,
             latitude REAL,
             longitude REAL
