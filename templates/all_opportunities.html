@@ -13,6 +13,28 @@
                         <button class="search-button" type="submit">Search</button>
                     </div>
                 </div>
+                <div class="event-type-filters">
+                    <label class="event-type-checkbox">
+                        <input type="checkbox" name="include_conferences" value="1" {% if request.args.get('include_conferences') %}checked{% endif %}>
+                        <span>Conferences</span>
+                    </label>
+                    <label class="event-type-checkbox">
+                        <input type="checkbox" name="include_hackathons" value="1" {% if request.args.get('include_hackathons') %}checked{% endif %}>
+                        <span>Hackathons</span>
+                    </label>
+                    <label class="event-type-checkbox">
+                        <input type="checkbox" name="include_contests" value="1" {% if request.args.get('include_contests') %}checked{% endif %}>
+                        <span>Contests</span>
+                    </label>
+                    <label class="event-type-checkbox">
+                        <input type="checkbox" name="include_competitions" value="1" {% if request.args.get('include_competitions') %}checked{% endif %}>
+                        <span>Competitions</span>
+                    </label>
+                    <label class="event-type-checkbox">
+                        <input type="checkbox" name="include_meetups" value="1" {% if request.args.get('include_meetups') %}checked{% endif %}>
+                        <span>Meetups</span>
+                    </label>
+                </div>
             </form>
         </div>
     </div>
@@ -203,6 +225,59 @@ body {
     .opportunities-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.event-type-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+.event-type-checkbox {
+    position: relative;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #bfc9d1;
+    padding-left: 2.2rem;
+    transition: color 0.2s;
+}
+.event-type-checkbox input[type="checkbox"] {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 6px;
+    border: 2px solid #3b82f6;
+    background: #23272a;
+    appearance: none;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+}
+.event-type-checkbox input[type="checkbox"]:checked {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+.event-type-checkbox input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 0.35rem;
+    top: 0.15rem;
+    width: 0.4rem;
+    height: 0.7rem;
+    border: solid #fff;
+    border-width: 0 0.2rem 0.2rem 0;
+    transform: rotate(45deg);
+    display: block;
+}
+.event-type-checkbox:hover,
+.event-type-checkbox input[type="checkbox"]:focus + span {
+    color: #fff;
 }
 </style>
 

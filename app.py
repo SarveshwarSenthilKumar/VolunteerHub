@@ -255,46 +255,41 @@ def all_opportunities():
     if not user or not user["city"]:
         return redirect("/auth/login")
 
-    # Get all unswiped opportunities for this user
+    # Get search/filter params
+    keyword = request.args.get("keyword", "").strip()
+    include_types = []
+    if request.args.get('include_conferences'): include_types.append('conference')
+    if request.args.get('include_hackathons'): include_types.append('hackathon')
+    if request.args.get('include_contests'): include_types.append('contest')
+    if request.args.get('include_competitions'): include_types.append('competition')
+    if request.args.get('include_meetups'): include_types.append('meetup')
+    all_keywords = [keyword] if keyword else []
+    all_keywords += include_types
+
+    # Get all unswiped opportunities for this user, filtered by city and keywords
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
-    crsr.execute("""
+    query = """
         SELECT o.* FROM opportunities o
         LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
         WHERE o.city LIKE ?
-        ORDER BY o.created_at DESC
-    """, (user["id"], f"%{user['city']}%"))
+    """
+    params = [user["id"], f"%{user['city']}%"]
+    if all_keywords:
+        keyword_clauses = []
+        keyword_params = []
+        for kw in all_keywords:
+            if kw:
+                keyword_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)")
+                keyword_params.extend([f"%{kw.lower()}%"] * 4)
+        if keyword_clauses:
+            query += " AND (" + " OR ".join(keyword_clauses) + ")"
+            params.extend(keyword_params)
+    query += " ORDER BY o.created_at DESC"
+    crsr.execute(query, params)
     opportunities = [dict(row) for row in crsr.fetchall()]
     connection.close()
-
-    # If no opportunities are found, fetch and store new ones
-    if not opportunities:
-        opportunities_text = get_opportunities_from_chatgpt(user["city"])
-        if opportunities_text:
-            parsed_opportunities = extract_opportunity_info(opportunities_text)
-            connection = sqlite3.connect("opportunities.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            inserted_count = 0
-            for opp in parsed_opportunities:
-                if insert_opportunity_safely(crsr, opp):
-                    inserted_count += 1
-            connection.commit()
-            connection.close()
-            print(f"Inserted {inserted_count} new opportunities for {user['city']}")
-            # Fetch the newly added opportunities
-            connection = sqlite3.connect("opportunities.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            crsr.execute("""
-                SELECT o.* FROM opportunities o
-                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-                WHERE o.city LIKE ?
-                ORDER BY o.created_at DESC
-            """, (user["id"], f"%{user['city']}%"))
-            opportunities = [dict(row) for row in crsr.fetchall()]
-            connection.close()
 
     return render_template("all_opportunities.html", opportunities=opportunities)
 
@@ -319,6 +314,18 @@ def search_opportunities():
 
     search_city = city if city else user["city"]
 
+    # After reading keyword and city:
+    include_types = []
+    if request.args.get('include_conferences'): include_types.append('conference')
+    if request.args.get('include_hackathons'): include_types.append('hackathon')
+    if request.args.get('include_contests'): include_types.append('contest')
+    if request.args.get('include_competitions'): include_types.append('competition')
+    if request.args.get('include_meetups'): include_types.append('meetup')
+
+    # Combine keyword and event types for search
+    all_keywords = [keyword] if keyword else []
+    all_keywords += include_types
+
     # Search in the database first
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
@@ -328,9 +335,16 @@ def search_opportunities():
     if search_city:
         query += " AND LOWER(city) LIKE ?"
         params.append(f"%{search_city.lower()}%")
-    if keyword:
-        query += " AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)"
-        params.extend([f"%{keyword.lower()}%"] * 4)
+    if all_keywords:
+        keyword_clauses = []
+        keyword_params = []
+        for kw in all_keywords:
+            if kw:
+                keyword_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)")
+                keyword_params.extend([f"%{kw.lower()}%"] * 4)
+        if keyword_clauses:
+            query += " AND (" + " OR ".join(keyword_clauses) + ")"
+            params.extend(keyword_params)
     query += " ORDER BY created_at DESC"
     print("QUERY:", query)
     print("PARAMS:", params)
@@ -341,9 +355,16 @@ def search_opportunities():
     # --- ChatGPT fallback for new opportunities (commented out for demo) ---
     
     if search_city:
-        def get_opportunities_from_chatgpt_with_keyword(city, keyword):
+        def get_opportunities_from_chatgpt_with_keyword(city, keyword, event_types=None):
+            # Build a natural language description of what the user is searching for
+            search_desc = f"volunteer opportunities in {city}"
+            if keyword:
+                search_desc += f" related to '{keyword}'"
+            if event_types:
+                event_names = ', '.join(event_types)
+                search_desc += f" and ONLY include events of these types: {event_names}"
             prompt = f"""
-Generate 5 real, currently active, and verifiable volunteer opportunities in {city} that match the keyword '{keyword}'. For each opportunity, provide the following information in this exact format:
+Generate 5 real, currently active, and verifiable {search_desc}. For each opportunity, provide the following information in this exact format:
 
 Organization Name: [Name]
 Title: [Title]
@@ -356,6 +377,7 @@ Contact Info: [Contact Info]
 Apply Link: [Apply Link]
 
 IMPORTANT INSTRUCTIONS:
+- If event types are specified, ONLY include opportunities that are {event_names if event_types else 'any type'}.
 - Only include opportunities from well-known, reputable, and established organizations (such as United Way, Red Cross, Habitat for Humanity, local government, or major nonprofits).
 - The Apply Link must be a real, working, and direct URL to an actual volunteer opportunity or application page (not just the organization's homepage).
 - Do NOT include any links that are placeholders, made up, or that return a 404 or 'not found' error.
@@ -378,7 +400,7 @@ IMPORTANT INSTRUCTIONS:
         all_valid_opps = []
         seen_links = set()
         for attempt in range(max_retries):
-            opportunities_text = get_opportunities_from_chatgpt_with_keyword(search_city, keyword)
+            opportunities_text = get_opportunities_from_chatgpt_with_keyword(search_city, keyword, include_types)
             if opportunities_text:
                 parsed_opportunities = extract_opportunity_info(opportunities_text)
                 for opp in parsed_opportunities:
@@ -414,9 +436,16 @@ IMPORTANT INSTRUCTIONS:
     if search_city:
         query += " AND LOWER(city) LIKE ?"
         params.append(f"%{search_city.lower()}%")
-    if keyword:
-        query += " AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)"
-        params.extend([f"%{keyword.lower()}%"] * 4)
+    if all_keywords:
+        keyword_clauses = []
+        keyword_params = []
+        for kw in all_keywords:
+            if kw:
+                keyword_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)")
+                keyword_params.extend([f"%{kw.lower()}%"] * 4)
+        if keyword_clauses:
+            query += " AND (" + " OR ".join(keyword_clauses) + ")"
+            params.extend(keyword_params)
     query += " ORDER BY created_at DESC"
     print("QUERY:", query)
     print("PARAMS:", params)
