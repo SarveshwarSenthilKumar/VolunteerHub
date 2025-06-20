@@ -279,9 +279,60 @@ function handleAction(action, index) {
             nextCard.classList.add('active');
             current = index + 1;
         } else {
+            // If this was the last card, trigger background fetch
+            if (!window._oppsBackgroundFetchTriggered) {
+                window._oppsBackgroundFetchTriggered = true;
+                showBackgroundFetchMessage();
+                fetch('/fetch_opportunities_background', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateBackgroundFetchMessage('New opportunities are being added! Please refresh in a moment.');
+                        } else {
+                            updateBackgroundFetchMessage('No new opportunities found at this time.');
+                        }
+                        setTimeout(hideBackgroundFetchMessage, 4000);
+                    })
+                    .catch(() => {
+                        updateBackgroundFetchMessage('Error fetching new opportunities.');
+                        setTimeout(hideBackgroundFetchMessage, 4000);
+                    });
+            }
             window.location.reload();
         }
     }, 300);
+}
+
+// Helper functions for background fetch message
+function showBackgroundFetchMessage() {
+    let msg = document.getElementById('background-fetch-msg');
+    if (!msg) {
+        msg = document.createElement('div');
+        msg.id = 'background-fetch-msg';
+        msg.style.position = 'fixed';
+        msg.style.bottom = '30px';
+        msg.style.left = '50%';
+        msg.style.transform = 'translateX(-50%)';
+        msg.style.background = 'var(--bg-secondary)';
+        msg.style.color = 'var(--text-primary)';
+        msg.style.padding = '1rem 2rem';
+        msg.style.borderRadius = '1rem';
+        msg.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+        msg.style.zIndex = '9999';
+        msg.textContent = 'Fetching new opportunities...';
+        document.body.appendChild(msg);
+    } else {
+        msg.textContent = 'Fetching new opportunities...';
+        msg.style.display = 'block';
+    }
+}
+function updateBackgroundFetchMessage(text) {
+    let msg = document.getElementById('background-fetch-msg');
+    if (msg) msg.textContent = text;
+}
+function hideBackgroundFetchMessage() {
+    let msg = document.getElementById('background-fetch-msg');
+    if (msg) msg.style.display = 'none';
 }
 
 // Drag logic

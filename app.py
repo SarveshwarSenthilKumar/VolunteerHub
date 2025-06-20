@@ -446,6 +446,56 @@ def search_opportunities():
 
     return render_template("opportunities.html", opportunities=opportunities)
 
+@app.route("/fetch_opportunities_background", methods=["POST"])
+def fetch_opportunities_background():
+    if not session.get("name"):
+        return jsonify({"error": "Not logged in"}), 401
+
+    # Get user city
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT city FROM users WHERE username = ?", (session["name"],))
+    user = user_crsr.fetchone()
+    user_connection.close()
+
+    if not user or not user["city"]:
+        return jsonify({"error": "No city found for user"}), 400
+
+    # Fetch new opportunities from ChatGPT
+    opportunities_text = get_opportunities_from_chatgpt(user["city"])
+    if opportunities_text:
+        parsed_opportunities = extract_opportunity_info(opportunities_text)
+        connection = sqlite3.connect("opportunities.db")
+        crsr = connection.cursor()
+        for opp in parsed_opportunities:
+            if not all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"]):
+                continue
+            crsr.execute("""
+                SELECT id FROM opportunities 
+                WHERE organization_name = ? AND title = ? AND description = ?
+            """, (opp["organization_name"], opp["title"], opp["description"]))
+            if not crsr.fetchone():
+                crsr.execute("""
+                    INSERT INTO opportunities 
+                    (organization_name, title, description, location, city, contact_info, apply_link, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    opp["organization_name"],
+                    opp["title"],
+                    opp["description"],
+                    opp["location"],
+                    opp["city"],
+                    opp["contact_info"],
+                    opp["apply_link"],
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
+        connection.commit()
+        connection.close()
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": "Failed to fetch from ChatGPT"})
+
 def init_db():
     # Initialize users database
     user_connection = sqlite3.connect("users.db")

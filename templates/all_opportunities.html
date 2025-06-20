@@ -5,13 +5,15 @@
     <div class="search-header">
         <h1 style="color: #fff;">All Opportunities in Your City</h1>
         <div class="search-bar-container">
-            <div class="search-bar">
-                <i class="fas fa-search"></i>
-                <input type="text" placeholder="Ex: Programming" aria-label="Search volunteer opportunities">
-                <div class="search-tools">
-                    <button class="search-button">Search</button>
+            <form method="GET" action="/opportunities">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" name="keyword" placeholder="Ex: Programming" aria-label="Search volunteer opportunities" value="{{ request.args.get('keyword', '') }}">
+                    <div class="search-tools">
+                        <button class="search-button" type="submit">Search</button>
+                    </div>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
