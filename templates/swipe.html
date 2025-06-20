@@ -287,7 +287,12 @@ function handleAction(action, index) {
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
-                            updateBackgroundFetchMessage('New opportunities are being added! Please refresh in a moment.');
+                            const count = data.inserted_count || 0;
+                            if (count > 0) {
+                                updateBackgroundFetchMessage(`Added ${count} new opportunities! Please refresh in a moment.`);
+                            } else {
+                                updateBackgroundFetchMessage('No new opportunities found at this time.');
+                            }
                         } else {
                             updateBackgroundFetchMessage('No new opportunities found at this time.');
                         }

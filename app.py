@@ -112,7 +112,6 @@ def opportunities():
     user_crsr.execute("SELECT city FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
-    print(user)
     if not user or not user["city"]:
         return redirect("/auth/login")
 
@@ -158,29 +157,24 @@ def swipe():
             parsed_opportunities = extract_opportunity_info(opportunities_text)
             connection = sqlite3.connect("opportunities.db")
             crsr = connection.cursor()
+            inserted_count = 0
             for opp in parsed_opportunities:
-                if not all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"]):
-                    continue
-                crsr.execute("""
-                    SELECT id FROM opportunities 
-                    WHERE organization_name = ? AND title = ? AND description = ?
-                """, (opp["organization_name"], opp["title"], opp["description"]))
-                if not crsr.fetchone():
-                    crsr.execute("""
-                        INSERT INTO opportunities 
-                        (organization_name, title, description, location, city, contact_info, apply_link, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        opp["organization_name"],
-                        opp["title"],
-                        opp["description"],
-                        opp["location"],
-                        opp["city"],
-                        opp["contact_info"],
-                        opp["apply_link"],
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    ))
+                if insert_opportunity_safely(crsr, opp):
+                    inserted_count += 1
             connection.commit()
+            connection.close()
+            print(f"Inserted {inserted_count} new opportunities for {user['city']}")
+            # Fetch the newly added opportunities
+            connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
+            crsr = connection.cursor()
+            crsr.execute("""
+                SELECT o.* FROM opportunities o
+                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
+                WHERE o.city LIKE ?
+                ORDER BY o.created_at DESC
+            """, (user["id"], f"%{user['city']}%"))
+            opportunities = [dict(row) for row in crsr.fetchall()]
             connection.close()
         retries += 1
     return render_template("swipe.html", opportunities=opportunities)
@@ -274,10 +268,7 @@ def all_opportunities():
     user = user_crsr.fetchone()
     user_connection.close()
 
-    print(user)
-
     if not user or not user["city"]:
-        print(user)
         return redirect("/auth/login")
 
     # Get all unswiped opportunities for this user
@@ -300,28 +291,13 @@ def all_opportunities():
             parsed_opportunities = extract_opportunity_info(opportunities_text)
             connection = sqlite3.connect("opportunities.db")
             crsr = connection.cursor()
+            inserted_count = 0
             for opp in parsed_opportunities:
-                crsr.execute("""
-                    SELECT id FROM opportunities 
-                    WHERE organization_name = ? AND title = ? AND description = ?
-                """, (opp["organization_name"], opp["title"], opp["description"]))
-                if not crsr.fetchone():
-                    crsr.execute("""
-                        INSERT INTO opportunities 
-                        (organization_name, title, description, location, city, contact_info, apply_link, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        opp["organization_name"],
-                        opp["title"],
-                        opp["description"],
-                        opp["location"],
-                        opp["city"],
-                        opp["contact_info"],
-                        opp["apply_link"],
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    ))
+                if insert_opportunity_safely(crsr, opp):
+                    inserted_count += 1
             connection.commit()
             connection.close()
+            print(f"Inserted {inserted_count} new opportunities for {user['city']}")
             # Fetch the newly added opportunities
             connection = sqlite3.connect("opportunities.db")
             connection.row_factory = sqlite3.Row
@@ -394,27 +370,12 @@ def search_opportunities():
             parsed_opportunities = extract_opportunity_info(opportunities_text)
             connection = sqlite3.connect("opportunities.db")
             crsr = connection.cursor()
+            inserted_count = 0
             for opp in parsed_opportunities:
-                crsr.execute("""
-                    SELECT id FROM opportunities 
-                    WHERE organization_name = ? AND title = ? AND description = ?
-                """, (opp["organization_name"], opp["title"], opp["description"]))
-                if not crsr.fetchone():
-                    crsr.execute("""
-                        INSERT INTO opportunities 
-                        (organization_name, title, description, location, city, contact_info, apply_link, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        opp["organization_name"],
-                        opp["title"],
-                        opp["description"],
-                        opp["location"],
-                        opp["city"],
-                        opp["contact_info"],
-                        opp["apply_link"],
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    ))
+                if insert_opportunity_safely(crsr, opp):
+                    inserted_count += 1
             connection.commit()
+            print(f"Inserted {inserted_count} new opportunities for {search_city} with keyword '{keyword}'")
             # Fetch again after inserting
             query = "SELECT * FROM opportunities WHERE 1=1"
             params = []
@@ -453,31 +414,14 @@ def fetch_opportunities_background():
         parsed_opportunities = extract_opportunity_info(opportunities_text)
         connection = sqlite3.connect("opportunities.db")
         crsr = connection.cursor()
+        inserted_count = 0
         for opp in parsed_opportunities:
-            if not all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"]):
-                continue
-            crsr.execute("""
-                SELECT id FROM opportunities 
-                WHERE organization_name = ? AND title = ? AND description = ?
-            """, (opp["organization_name"], opp["title"], opp["description"]))
-            if not crsr.fetchone():
-                crsr.execute("""
-                    INSERT INTO opportunities 
-                    (organization_name, title, description, location, city, contact_info, apply_link, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    opp["organization_name"],
-                    opp["title"],
-                    opp["description"],
-                    opp["location"],
-                    opp["city"],
-                    opp["contact_info"],
-                    opp["apply_link"],
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                ))
+            if insert_opportunity_safely(crsr, opp):
+                inserted_count += 1
         connection.commit()
         connection.close()
-        return jsonify({"success": True})
+        print(f"Background: Inserted {inserted_count} new opportunities for {user['city']}")
+        return jsonify({"success": True, "inserted_count": inserted_count})
     else:
         return jsonify({"success": False, "error": "Failed to fetch from ChatGPT"})
 
@@ -514,6 +458,83 @@ def remove_saved():
     else:
         user_connection.close()
         return jsonify({"error": "Opportunity not found in saved list"}), 404
+
+def normalize_text(text):
+    """Normalize text for duplicate checking by converting to lowercase and trimming whitespace"""
+    if not text:
+        return ""
+    return text.lower().strip()
+
+def is_duplicate_opportunity(crsr, opportunity):
+    """Check if an opportunity is a duplicate based on normalized fields"""
+    if not opportunity:
+        return False
+    
+    # Normalize the fields for comparison
+    org_name = normalize_text(opportunity.get("organization_name", ""))
+    title = normalize_text(opportunity.get("title", ""))
+    apply_link = normalize_text(opportunity.get("apply_link", ""))
+    
+    # Check for exact matches first (most strict)
+    if org_name and title:
+        crsr.execute("""
+            SELECT id FROM opportunities 
+            WHERE LOWER(TRIM(organization_name)) = ? AND LOWER(TRIM(title)) = ?
+        """, (org_name, title))
+        if crsr.fetchone():
+            return True
+    
+    # Check for similar organization name and title (fuzzy matching)
+    if org_name and title:
+        # Check if organization name and title are very similar (allowing for minor variations)
+        crsr.execute("""
+            SELECT id, organization_name, title FROM opportunities 
+            WHERE LOWER(TRIM(organization_name)) LIKE ? AND LOWER(TRIM(title)) LIKE ?
+        """, (f"%{org_name}%", f"%{title}%"))
+        existing = crsr.fetchall()
+        for row in existing:
+            existing_org = normalize_text(row[1])
+            existing_title = normalize_text(row[2])
+            # If both org name and title are very similar (>80% match), consider it a duplicate
+            if (existing_org in org_name or org_name in existing_org) and (existing_title in title or title in existing_title):
+                return True
+    
+    # Check for duplicate apply links (if available)
+    if apply_link:
+        crsr.execute("""
+            SELECT id FROM opportunities 
+            WHERE LOWER(TRIM(apply_link)) = ?
+        """, (apply_link,))
+        if crsr.fetchone():
+            return True
+    
+    return False
+
+def insert_opportunity_safely(crsr, opportunity):
+    """Safely insert an opportunity, checking for duplicates first"""
+    if not opportunity or not all(opportunity.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"]):
+        return False
+    
+    # Check for duplicates
+    if is_duplicate_opportunity(crsr, opportunity):
+        return False
+    
+    # Insert the opportunity
+    crsr.execute("""
+        INSERT INTO opportunities 
+        (organization_name, title, description, location, city, contact_info, apply_link, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        opportunity["organization_name"].strip(),
+        opportunity["title"].strip(),
+        opportunity["description"].strip(),
+        opportunity["location"].strip(),
+        opportunity["city"].strip(),
+        opportunity["contact_info"].strip(),
+        opportunity["apply_link"].strip(),
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ))
+    return True
 
 def init_db():
     # Initialize users database
@@ -554,9 +575,20 @@ def init_db():
             volunteers_needed INTEGER,
             contact_info TEXT,
             apply_link TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(organization_name, title, apply_link)
         )
     """)
+    
+    # Add unique constraint if it doesn't exist (for existing databases)
+    try:
+        opp_crsr.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunity_unique 
+            ON opportunities(organization_name, title, apply_link)
+        """)
+    except:
+        pass  # Index might already exist
+    
     opp_crsr.execute("""
         CREATE TABLE IF NOT EXISTS user_opportunities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -571,8 +603,63 @@ def init_db():
     opp_connection.commit()
     opp_connection.close()
 
+def cleanup_duplicates():
+    """Clean up existing duplicates in the opportunities database"""
+    connection = sqlite3.connect("opportunities.db")
+    crsr = connection.cursor()
+    
+    # Get all opportunities
+    crsr.execute("SELECT id, organization_name, title, apply_link FROM opportunities ORDER BY created_at")
+    all_opportunities = crsr.fetchall()
+    
+    seen_combinations = set()
+    duplicates_to_remove = []
+    
+    for opp_id, org_name, title, apply_link in all_opportunities:
+        # Normalize the fields
+        org_name_norm = normalize_text(org_name)
+        title_norm = normalize_text(title)
+        apply_link_norm = normalize_text(apply_link)
+        
+        # Create a unique key for this opportunity
+        key = (org_name_norm, title_norm, apply_link_norm)
+        
+        if key in seen_combinations:
+            # This is a duplicate, mark for removal
+            duplicates_to_remove.append(opp_id)
+        else:
+            seen_combinations.add(key)
+    
+    # Remove duplicates (keep the first occurrence)
+    if duplicates_to_remove:
+        crsr.execute("DELETE FROM opportunities WHERE id IN ({})".format(
+            ",".join("?" * len(duplicates_to_remove))
+        ), duplicates_to_remove)
+        connection.commit()
+        print(f"Removed {len(duplicates_to_remove)} duplicate opportunities")
+    
+    connection.close()
+    return len(duplicates_to_remove)
+
+@app.route("/cleanup-duplicates", methods=["POST"])
+def cleanup_duplicates_route():
+    if not session.get("name"):
+        return jsonify({"error": "Not logged in"}), 401
+    
+    try:
+        removed_count = cleanup_duplicates()
+        return jsonify({"success": True, "removed_count": removed_count})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 # Initialize database tables if they don't exist
 init_db()
+
+# Clean up any existing duplicates
+try:
+    cleanup_duplicates()
+except Exception as e:
+    print(f"Error during duplicate cleanup: {e}")
 
 if autoRun:
     if __name__ == '__main__':
