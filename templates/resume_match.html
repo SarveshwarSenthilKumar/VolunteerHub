@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="resume-match-container">
+    <h1>Resume-Based Opportunity Match</h1>
+    <form method="POST" enctype="multipart/form-data" class="resume-upload-form">
+        <label for="resume">Upload your resume (PDF only):</label>
+        <input type="file" name="resume" id="resume" accept="application/pdf" required>
+        <button type="submit" class="button button-primary">Scan & Find Matches</button>
+    </form>
+    {% if message %}
+        <div class="message">{{ message }}</div>
+    {% endif %}
+    {% if extracted_skills %}
+        <div class="skills-section">
+            <h2>Extracted Skills & Interests</h2>
+            <div class="skills-list">
+                {% for skill in extracted_skills %}
+                    <span class="skill-chip">{{ skill }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+    {% if matched_opportunities %}
+        <div class="opportunities-section">
+            <h2>Matching Opportunities</h2>
+            <div class="opportunities-list">
+                {% for opp in matched_opportunities %}
+                    <div class="opportunity-card">
+                        <div class="opp-title">{{ opp.title }}</div>
+                        <div class="opp-org">{{ opp.organization_name }}</div>
+                        <div class="opp-desc">{{ opp.description }}</div>
+                        <a href="{{ opp.apply_link }}" class="apply-link" target="_blank">Apply</a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+<style>
+.resume-match-container {
+    max-width: 600px;
+    margin: 3rem auto;
+    background: #23272a;
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 24px rgba(59,130,246,0.13);
+    padding: 2.5rem 2rem 2rem 2rem;
+}
+.resume-match-container h1 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #fff;
+}
+.resume-upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.resume-upload-form label {
+    color: #bfc9d1;
+    font-weight: 600;
+}
+.resume-upload-form input[type="file"] {
+    background: #2c2f33;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 8px;
+}
+.button-primary {
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 0;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.button-primary:hover {
+    background: #2563eb;
+}
+.message {
+    color: #ff6b6b;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+.skills-section {
+    margin-bottom: 2rem;
+}
+.skills-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.skill-chip {
+    background: #3b82f6;
+    color: #fff;
+    border-radius: 1rem;
+    padding: 0.4rem 1rem;
+    font-size: 1em;
+    font-weight: 600;
+}
+.opportunities-section {
+    margin-top: 2rem;
+}
+.opportunities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+.opportunity-card {
+    background: #2c2f33;
+    border-radius: 1rem;
+    padding: 1.2rem 1rem;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.07);
+}
+.opp-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.3rem;
+}
+.opp-org {
+    color: #3b82f6;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+.opp-desc {
+    color: #bfc9d1;
+    margin-bottom: 0.7rem;
+}
+.apply-link {
+    color: #06b6d4;
+    font-weight: 700;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.apply-link:hover {
+    color: #3b82f6;
+}
+</style>
+{% endblock %} 

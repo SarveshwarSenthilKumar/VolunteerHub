@@ -13,6 +13,8 @@ import requests
 import time
 import io
 from SarvAuth import checkUserPassword
+from werkzeug.utils import secure_filename
+import pdfplumber
 
 app = Flask(__name__)
 
@@ -397,11 +399,11 @@ IMPORTANT INSTRUCTIONS:
 - Separate each opportunity with a blank line.
 """
             try:
-                response = openai.chat.completions.create(
+                response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
                     messages=[{"role": "user", "content": prompt}]
                 )
-                return response.choices[0].message.content
+                return response["choices"][0]["message"]["content"].strip()
             except Exception as e:
                 print(f"Error getting opportunities from ChatGPT: {e}")
                 return None
@@ -960,6 +962,99 @@ def download_resume():
     if user and user["resume"]:
         return send_file(io.BytesIO(user["resume"]), mimetype="application/pdf", as_attachment=True, download_name="resume.pdf")
     return "No resume found.", 404
+
+@app.route("/resume-match", methods=["GET", "POST"])
+def resume_match():
+    if not session.get("name"):
+        return redirect("/auth/login")
+    message = None
+    matched_opportunities = []
+    extracted_skills = []
+    if request.method == "POST":
+        if "resume" not in request.files:
+            message = "No file part."
+        else:
+            file = request.files["resume"]
+            if file.filename == "":
+                message = "No selected file."
+            elif not file.filename.lower().endswith(".pdf"):
+                message = "Only PDF files are allowed."
+            else:
+                # Extract text from PDF using pdfplumber
+                try:
+                    file.seek(0)
+                    with pdfplumber.open(file) as pdf:
+                        text = ''.join(page.extract_text() or '' for page in pdf.pages)
+                except Exception as e:
+                    message = f"Failed to read PDF: {e}"
+                    text = ""
+                if text:
+                    # Use LLM to extract skills/keywords
+                    prompt = f"""
+Given the following resume text, extract a concise, comma-separated list of the most relevant skills, areas of expertise, and interests for matching to volunteer opportunities. Only output the list, no extra text.
+
+Resume:
+{text}
+"""
+                    try:
+                        response = openai.ChatCompletion.create(
+                            model="gpt-3.5-turbo",
+                            messages=[{"role": "user", "content": prompt}]
+                        )
+                        skills_str = response["choices"][0]["message"]["content"].strip()
+                        extracted_skills = [s.strip() for s in skills_str.split(",") if s.strip()]
+                    except Exception as e:
+                        message = f"Failed to extract skills: {e}"
+                        extracted_skills = []
+                # Query opportunities DB for matches using the search logic
+                if extracted_skills:
+                    connection = sqlite3.connect("opportunities.db")
+                    connection.row_factory = sqlite3.Row
+                    crsr = connection.cursor()
+                    # Build a query to match any of the skills in title, description, or organization_name
+                    clauses = []
+                    params = []
+                    for skill in extracted_skills:
+                        clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ?)")
+                        params.extend([f"%{skill.lower()}%"] * 3)
+                    query = "SELECT * FROM opportunities"
+                    if clauses:
+                        query += " WHERE " + " OR ".join(clauses)
+                    query += " ORDER BY created_at DESC LIMIT 20"
+                    crsr.execute(query, params)
+                    matched_opportunities = [dict(row) for row in crsr.fetchall()]
+                    connection.close()
+                    if not matched_opportunities:
+                        # If no DB matches, ask ChatGPT for real, verifiable opportunities for these skills
+                        chat_prompt = f"""
+Given the following skills and interests: {', '.join(extracted_skills)}, generate 5 real, verifiable, and currently available volunteer opportunities from reputable organizations. For each, provide:
+
+Organization Name: [Name]
+Title: [Title]
+Description: [Description]
+City: [City]
+State: [State]
+Location: [Location]
+Duration: [Duration]
+Volunteers Needed: [Number]
+Contact Info: [Contact Info]
+Apply Link: [Apply Link]
+
+Only include real opportunities with working links. Separate each opportunity with a blank line.
+"""
+                        try:
+                            response = openai.ChatCompletion.create(
+                                model="gpt-3.5-turbo",
+                                messages=[{"role": "user", "content": chat_prompt}]
+                            )
+                            opp_text = response["choices"][0]["message"]["content"].strip()
+                            # Use the extract_opportunity_info function to parse
+                            matched_opportunities = extract_opportunity_info(opp_text)
+                            if not matched_opportunities:
+                                message = "No matching opportunities found for your resume, even from ChatGPT."
+                        except Exception as e:
+                            message = f"No matching opportunities found for your resume, and failed to fetch from ChatGPT: {e}"
+    return render_template("resume_match.html", message=message, matched_opportunities=matched_opportunities, extracted_skills=extracted_skills)
 
 # Initialize database tables if they don't exist
 init_db()
