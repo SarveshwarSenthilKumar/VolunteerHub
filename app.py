@@ -819,6 +819,40 @@ def map_view():
             })
     return render_template("map.html", opportunities=map_opps)
 
+# Hardcoded list of executive admin usernames
+ADMIN_USERNAMES = {"sarveshwarsenthilkumar2"}  # Replace with your actual admin username(s)
+
+@app.route("/_admin_dashboard", methods=["GET", "POST"])
+def admin_dashboard():
+    if not session.get("name"):
+        return redirect("/auth/login")
+    # Check if user is in the admin list
+    if session.get("name") not in ADMIN_USERNAMES:
+        return "Access denied", 403
+
+    # Handle admin promotion (in-memory, demo only)
+    message = None
+    if request.method == "POST":
+        promote_username = request.form.get("promote_username", "").strip()
+        if promote_username:
+            # In a real app, persist this in DB or config
+            ADMIN_USERNAMES.add(promote_username)
+            message = f"User '{promote_username}' is now an admin (for this session/demo only)."
+    # Get stats
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT COUNT(*) FROM users")
+    total_users = user_crsr.fetchone()[0]
+    user_connection.close()
+    opp_connection = sqlite3.connect("opportunities.db")
+    opp_crsr = opp_connection.cursor()
+    opp_crsr.execute("SELECT COUNT(*) FROM opportunities")
+    total_opps = opp_crsr.fetchone()[0]
+    opp_connection.close()
+    total_admins = len(ADMIN_USERNAMES)
+    return render_template("admin_dashboard.html", total_users=total_users, total_admins=total_admins, total_opps=total_opps, message=message)
+
 # Initialize database tables if they don't exist
 init_db()
 

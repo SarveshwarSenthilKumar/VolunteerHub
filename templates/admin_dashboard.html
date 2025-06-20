@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Admin Dashboard | VolunteerHub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(120deg, #0a0f1a 0%, #1a2233 100%);
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .dashboard-container {
+            max-width: 700px;
+            margin: 4rem auto 0 auto;
+            background: rgba(20,30,50,0.97);
+            border-radius: 2rem;
+            box-shadow: 0 8px 40px 0 rgba(59,130,246,0.18);
+            padding: 3rem 2.5rem 2.5rem 2.5rem;
+            position: relative;
+        }
+        .dashboard-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            text-align: center;
+            margin-bottom: 2.5rem;
+            background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stats-row {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+        .stat-card {
+            background: linear-gradient(120deg, #23272a 60%, #1e293b 100%);
+            border-radius: 1.2rem;
+            box-shadow: 0 4px 24px rgba(59,130,246,0.10);
+            padding: 2.2rem 2.5rem 1.5rem 2.5rem;
+            text-align: center;
+            min-width: 160px;
+            flex: 1;
+        }
+        .stat-label {
+            font-size: 1.1rem;
+            color: #bfc9d1;
+            margin-bottom: 0.7rem;
+            font-weight: 600;
+        }
+        .stat-value {
+            font-size: 2.7rem;
+            font-weight: 800;
+            color: #3b82f6;
+            letter-spacing: -2px;
+        }
+        .admin-form {
+            margin: 2.5rem auto 0 auto;
+            max-width: 420px;
+            background: rgba(30,40,60,0.85);
+            border-radius: 1.2rem;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.10);
+            padding: 2rem 2rem 1.5rem 2rem;
+        }
+        .admin-form-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 1.2rem;
+            text-align: center;
+        }
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background: #181f2e;
+            border-radius: 2rem;
+            padding: 0.5rem 1.2rem;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.07);
+        }
+        .search-bar input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 1.1rem;
+            padding: 0.7rem 0.5rem;
+            outline: none;
+        }
+        .search-bar button {
+            background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+            color: #fff;
+            border: none;
+            border-radius: 2rem;
+            padding: 0.7rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-left: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .search-bar button:hover {
+            background: #2563eb;
+        }
+        .message {
+            margin: 1.5rem auto 0 auto;
+            max-width: 420px;
+            background: #23272a;
+            color: #fff;
+            border-radius: 0.7rem;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.07);
+        }
+        @media (max-width: 700px) {
+            .dashboard-container { padding: 1.2rem; }
+            .stats-row { flex-direction: column; gap: 1.2rem; }
+            .stat-card { min-width: 0; padding: 1.2rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-title">Executive Admin Dashboard</div>
+        <div style="text-align:center;color:#bfc9d1;font-size:1rem;margin-bottom:1.5rem;opacity:0.85;">
+            <em>Admin status is managed in-memory for demo purposes and will reset on server restart.</em>
+        </div>
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">Total Users</div>
+                <div class="stat-value">{{ total_users }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Admins</div>
+                <div class="stat-value">{{ total_admins }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Opportunities</div>
+                <div class="stat-value">{{ total_opps }}</div>
+            </div>
+        </div>
+        <form class="admin-form" method="POST">
+            <div class="admin-form-title">Promote User to Admin</div>
+            <div class="search-bar">
+                <input type="text" name="promote_username" placeholder="Enter username..." required autocomplete="off">
+                <button type="submit">Promote</button>
+            </div>
+        </form>
+        {% if message %}
+        <div class="message">{{ message }}</div>
+        {% endif %}
+    </div>
+</body>
+</html> 
