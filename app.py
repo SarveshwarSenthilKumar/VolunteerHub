@@ -15,6 +15,7 @@ import io
 from SarvAuth import checkUserPassword
 from werkzeug.utils import secure_filename
 import pdfplumber
+import difflib
 
 app = Flask(__name__)
 
@@ -48,26 +49,16 @@ def index():
         else:
             return render_template("/index.html")
 
-def get_opportunities_from_chatgpt(city):
+def get_opportunities_from_chatgpt(city, custom_prompt=None):
     system_prompt = (
         "You are a helpful assistant for a volunteer opportunities platform. "
         "If the user prompt or any input contains inappropriate, offensive, unsafe, or non-family-friendly content, "
         "Never return or generate any inappropriate, offensive, or unsafe content."
-        "The opportunities have to be real and currently available."
     )
-    prompt = f"""Generate 5 volunteer opportunities in {city}. For each opportunity, provide the following information in this exact format:
-
-Organization Name: [Name]
-Title: [Title]
-Description: [Description]
-City: [City]
-Location: [Location]
-Duration: [Duration]
-Volunteers Needed: [Number]
-Contact Info: [Contact Info]
-Apply Link: [Apply Link]
-
-Separate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
+    if custom_prompt:
+        prompt = custom_prompt
+    else:
+        prompt = f"""Generate 5 volunteer opportunities in {city}. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -132,63 +123,73 @@ def check_inappropriate_openai(text):
         print(f"[OPENAI MODERATION] Error: {e}")
         return False
 
+def filter_generic_skills(skills):
+    GENERIC = {"volunteering", "volunteer", "helping", "service", "work", "project", "team", "organization", "member", "event", "events", "community", "leadership", "student", "group", "support"}
+    return [s for s in skills if s not in GENERIC and len(s) > 2]
+
+# PATCH: get_best_opportunities_with_label returns (results, randomized, fallback_label)
+def get_best_opportunities_with_label(crsr, user_id, city, skills, base_query, base_params, skill_fields, min_results=1, debug_label=""):
+    attempts = []
+    used_skills = [s for s in skills]
+    attempts.append(("all", used_skills))
+    filtered_skills = filter_generic_skills(used_skills)
+    if filtered_skills and filtered_skills != used_skills:
+        attempts.append(("filtered", filtered_skills))
+    if len(filtered_skills) > 3:
+        attempts.append(("top3", filtered_skills[:3]))
+    attempts.append(("random", []))
+    for label, skills_try in attempts:
+        query = base_query
+        params = list(base_params)
+        if skills_try:
+            skill_clauses = []
+            skill_params = []
+            for skill in skills_try:
+                skill_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
+                skill_params.extend([f"%{skill}%"] * len(skill_fields))
+            query += " AND (" + " OR ".join(skill_clauses) + ")"
+            params.extend(skill_params)
+        query += " ORDER BY RANDOM()"
+        print(f"[DEBUG][{debug_label}] Querying with skills ({label}): {skills_try}")
+        crsr.execute(query, params)
+        results = [dict(row) for row in crsr.fetchall()]
+        print(f"[DEBUG][{debug_label}] Found {len(results)} opportunities with skills ({label})")
+        results = [opp for opp in results if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
+        if len(results) >= min_results:
+            return results, (label == "random"), label
+    return results, True, "random"
+
 @app.route("/swipe", methods=["GET"])
 def swipe():
     if not session.get("name"):
         return redirect("/auth/login")
-
-    # Get user id, city, and skills
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
     user_crsr.execute("SELECT id, city, state, skills FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
-
     if not user or not user["city"]:
         return redirect("/auth/login")
-
-    max_retries = 3
-    retries = 0
-    opportunities = []
     used_skills = get_user_skills(user)
-    # Check for inappropriate skills
     if any(check_inappropriate_openai(skill) for skill in used_skills):
         return render_template("swipe.html", opportunities=[], randomized=False, error_message="Your skills/interests contain inappropriate or offensive language. Please update your profile.")
-    while retries < max_retries:
-        connection = sqlite3.connect("opportunities.db")
-        connection.row_factory = sqlite3.Row
-        crsr = connection.cursor()
-        if used_skills:
-            # Broader: match ANY skill (OR logic)
-            skill_clauses = []
-            skill_params = []
-            for skill in used_skills:
-                skill_clauses.append("(LOWER(o.title) LIKE ? OR LOWER(o.description) LIKE ? OR LOWER(o.organization_name) LIKE ?)")
-                skill_params.extend([f"%{skill}%"] * 3)
-            skill_query = " OR ".join(skill_clauses)
-            crsr.execute(f"""
-                SELECT o.* FROM opportunities o
-                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-                WHERE uo.id IS NULL AND o.city LIKE ? AND ({skill_query})
-                ORDER BY RANDOM()
-            """, [user["id"], f"%{user['city']}%"] + skill_params)
-        else:
-            # No skills: randomize
-            crsr.execute("""
-                SELECT o.* FROM opportunities o
-                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-                WHERE uo.id IS NULL AND o.city LIKE ?
-                ORDER BY RANDOM()
-            """, (user["id"], f"%{user['city']}%"))
-        opportunities = [dict(row) for row in crsr.fetchall()]
-        connection.close()
-        # Filter out opportunities with missing/empty required fields
-        opportunities = [opp for opp in opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
-        if opportunities:
-            break
-        # If none, fetch and store new ones
-        opportunities_text = get_opportunities_from_chatgpt(user["city"])
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    base_query = """
+        SELECT o.* FROM opportunities o
+        LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
+        WHERE uo.id IS NULL AND o.city LIKE ?
+    """
+    base_params = [user["id"], f"%{user['city']}%"]
+    skill_fields = ["o.title", "o.description", "o.organization_name"]
+    opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, debug_label="swipe")
+    connection.close()
+    # If still empty, try to fetch new ones from ChatGPT and insert (for skills)
+    if not opportunities and used_skills:
+        chatgpt_prompt = f"Generate 5 volunteer opportunities in {user['city']} related to the following skills: {', '.join(used_skills)}. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nState: [State]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."
+        opportunities_text = get_opportunities_from_chatgpt(user["city"], custom_prompt=chatgpt_prompt)
         if opportunities_text:
             parsed_opportunities = extract_opportunity_info(opportunities_text, user["state"])
             connection = sqlite3.connect("opportunities.db")
@@ -200,10 +201,18 @@ def swipe():
                     inserted_count += 1
             connection.commit()
             connection.close()
-            print(f"Inserted {inserted_count} new opportunities for {user['city']}")
-        retries += 1
-    randomized = not used_skills
-    return render_template("swipe.html", opportunities=opportunities, randomized=randomized)
+            print(f"Inserted {inserted_count} new opportunities for {user['city']} (skills fallback)")
+            # Try again with fallback logic
+            connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
+            crsr = connection.cursor()
+            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, debug_label="swipe-refetch")
+            connection.close()
+    # Custom message for rare skills fallback
+    rare_message = None
+    if fallback_label == "random":
+        rare_message = "That's quite a specialty, a rare one!"
+    return render_template("swipe.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message)
 
 @app.route("/swipe_action", methods=["POST"])
 def swipe_action():
@@ -281,35 +290,53 @@ def logout():
     # Redirect to the home page
     return redirect("/")
 
+# PATCH: Improved event type extraction and fuzzy matching
+EVENT_TYPE_ALIASES = {
+    'conference': ['conference', 'conferences', 'conf', 'conf.', 'summit', 'symposium', 'forum'],
+    'hackathon': ['hackathon', 'hackathons', 'hack', 'hackfest', 'codefest'],
+    'contest': ['contest', 'contests', 'competition', 'competitions', 'comp', 'challenge', 'tournament'],
+    'competition': ['competition', 'competitions', 'contest', 'contests', 'comp', 'challenge', 'tournament'],
+    'meetup': ['meetup', 'meetups', 'meet-up', 'meet-ups', 'gathering', 'networking']
+}
+ALL_EVENT_ALIASES = set(a for v in EVENT_TYPE_ALIASES.values() for a in v)
+
+def extract_event_types_from_text(text):
+    found_types = set()
+    text = text.lower()
+    for etype, aliases in EVENT_TYPE_ALIASES.items():
+        for alias in aliases:
+            if alias in text:
+                found_types.add(etype)
+    # Fuzzy match for partials/typos
+    words = text.split()
+    for word in words:
+        close = difflib.get_close_matches(word, ALL_EVENT_ALIASES, n=1, cutoff=0.75)
+        if close:
+            for etype, aliases in EVENT_TYPE_ALIASES.items():
+                if close[0] in aliases:
+                    found_types.add(etype)
+    return list(found_types)
+
 @app.route("/all-opportunities")
 def all_opportunities():
     if not session.get("name"):
         return redirect("/auth/login")
-
-    # Get user id, city, and skills
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
     user_crsr.execute("SELECT id, city, skills FROM users WHERE username = ?", (session.get("name"),))
     user = user_crsr.fetchone()
     user_connection.close()
-
     if not user or not user["city"]:
         return redirect("/auth/login")
-
-    # Get search/filter params
     keyword = request.args.get("keyword", "").strip()
-    include_types = []
-    if request.args.get('include_conferences'): include_types.append('conference')
-    if request.args.get('include_hackathons'): include_types.append('hackathon')
-    if request.args.get('include_contests'): include_types.append('contest')
-    if request.args.get('include_competitions'): include_types.append('competition')
-    if request.args.get('include_meetups'): include_types.append('meetup')
-    all_keywords = [keyword] if keyword else []
-    all_keywords += include_types
-
+    include_types = [etype for etype in EVENT_TYPE_ALIASES if request.args.get(f'include_{etype}s')]
+    extracted_types = extract_event_types_from_text(keyword) if keyword else []
+    for etype in extracted_types:
+        if etype not in include_types:
+            include_types.append(etype)
+    all_keywords = [e for e in include_types] + ([keyword] if keyword else [])
     used_skills = get_user_skills(user)
-    # Only check non-empty, non-trivial skills/keywords
     flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
     flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
     if flagged_skills or flagged_keywords:
@@ -318,75 +345,138 @@ def all_opportunities():
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
-    query = """
+    base_query = """
         SELECT o.* FROM opportunities o
         LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
         WHERE o.city LIKE ?
     """
-    params = [user["id"], f"%{user['city']}%"]
-    if all_keywords:
-        keyword_clauses = []
-        keyword_params = []
-        for kw in all_keywords:
-            if kw:
-                keyword_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)")
-                keyword_params.extend([f"%{kw.lower()}%"] * 4)
-        if keyword_clauses:
-            query += " AND (" + " OR ".join(keyword_clauses) + ")"
-            params.extend(keyword_params)
-    if used_skills:
-        skill_clauses = []
-        skill_params = []
-        for skill in used_skills:
-            skill_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ?)")
-            skill_params.extend([f"%{skill}%"] * 3)
-        if skill_clauses:
-            query += " AND (" + " OR ".join(skill_clauses) + ")"
-            params.extend(skill_params)
-        query += " ORDER BY RANDOM()"
+    base_params = [user["id"], f"%{user['city']}%"]
+    skill_fields = ["title", "description", "organization_name", "location"]
+    # Determine if this is an event-only search
+    event_only_mode = False
+    if include_types and (not keyword or all(w in include_types for w in extract_event_types_from_text(keyword))):
+        event_only_mode = True
+    print(f"[DEBUG][all-opportunities] Event types included: {include_types}, event_only_mode: {event_only_mode}")
+    if event_only_mode:
+        event_clauses = []
+        event_params = []
+        for etype in include_types:
+            for alias in EVENT_TYPE_ALIASES[etype]:
+                event_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
+                event_params.extend([f"%{alias}%"] * len(skill_fields))
+        if event_clauses:
+            base_query += " AND (" + " OR ".join(event_clauses) + ")"
+            base_params.extend(event_params)
+        print(f"[DEBUG][all-opportunities] Event-only query: {base_query}, params: {base_params}")
+        crsr.execute(base_query, base_params)
+        opportunities = [dict(row) for row in crsr.fetchall()]
+        print(f"[DEBUG][all-opportunities] Found {len(opportunities)} events (event_only_mode)")
+        randomized = False
+        fallback_label = None
     else:
-        query += " ORDER BY RANDOM()"
-    crsr.execute(query, params)
-    opportunities = [dict(row) for row in crsr.fetchall()]
+        combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
+        opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, debug_label="all-opportunities")
     connection.close()
-    randomized = not used_skills
-    return render_template("all_opportunities.html", opportunities=opportunities, randomized=randomized)
+    # If still empty, use ChatGPT to generate events (not just volunteer opps) for event types
+    if event_only_mode and not opportunities and include_types:
+        keyword_part = f". Every event must be directly about '{keyword}' and the keyword must appear as a whole word in the event's title or description." if keyword else ""
+        chatgpt_prompt = f"Generate 5 real or plausible events (not just volunteer opportunities) in {user['city']} for the following types: {', '.join(include_types)}{keyword_part} For each event, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nState: [State]\nLocation: [Location]\nDuration: [Duration]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each event with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."
+        opportunities_text = get_opportunities_from_chatgpt(user["city"], custom_prompt=chatgpt_prompt)
+        if opportunities_text:
+            parsed_opportunities = extract_opportunity_info(opportunities_text, user.get("state"))
+            if keyword:
+                import re
+                keyword_lc = keyword.lower()
+                before_count = len(parsed_opportunities)
+                def keyword_in_text(text):
+                    return bool(re.search(rf"\\b{re.escape(keyword_lc)}\\b", text.lower()))
+                parsed_opportunities = [opp for opp in parsed_opportunities if keyword_in_text(opp.get('title', '')) or keyword_in_text(opp.get('description', ''))]
+                print(f"[DEBUG][all-opportunities] {before_count} events generated, {len(parsed_opportunities)} passed WHOLE WORD keyword filter in title/description.")
+            connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
+            crsr = connection.cursor()
+            inserted_count = 0
+            for opp in parsed_opportunities:
+                if insert_opportunity_safely(crsr, opp):
+                    inserted_count += 1
+            connection.commit()
+            connection.close()
+            print(f"Inserted {inserted_count} new events for {user['city']} (event_only_mode fallback, keyword filtered)")
+            # Try again with event-only query
+            connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
+            crsr = connection.cursor()
+            base_query2 = """
+                SELECT o.* FROM opportunities o
+                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
+                WHERE o.city LIKE ?
+            """
+            base_params2 = [user["id"], f"%{user['city']}%"]
+            event_clauses = []
+            event_params = []
+            for etype in include_types:
+                for alias in EVENT_TYPE_ALIASES[etype]:
+                    event_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
+                    event_params.extend([f"%{alias}%"] * len(skill_fields))
+            if event_clauses:
+                base_query2 += " AND (" + " OR ".join(event_clauses) + ")"
+                base_params2.extend(event_params)
+            if keyword:
+                base_query2 += " AND (" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")"
+                base_params2.extend([f"%{keyword.lower()}%"] * len(skill_fields))
+            crsr.execute(base_query2, base_params2)
+            opportunities = [dict(row) for row in crsr.fetchall()]
+            connection.close()
+            randomized = False
+            # If still no results, show a user-friendly message
+            if not opportunities:
+                return render_template("all_opportunities.html", opportunities=[], randomized=False, rare_message=None, event_only_mode=event_only_mode, error_message="No events found for your search. Try a different keyword or event type.")
+    rare_message = None
+    if not event_only_mode and fallback_label == "random":
+        rare_message = "That's quite a specialty, a rare one!"
+    # After main query, if not event_only_mode and too few results, fill with random city/state opps
+    MIN_OPPS = 10
+    if not event_only_mode and len(opportunities) < MIN_OPPS:
+        connection = sqlite3.connect("opportunities.db")
+        connection.row_factory = sqlite3.Row
+        crsr = connection.cursor()
+        existing_ids = set(opp['id'] for opp in opportunities if 'id' in opp)
+        user_state = user['state'] if 'state' in user.keys() else ''
+        crsr.execute("SELECT * FROM opportunities WHERE city LIKE ? AND state LIKE ? ORDER BY RANDOM()", (f"%{user['city']}%", f"%{user_state}%"))
+        for row in crsr.fetchall():
+            if len(opportunities) >= MIN_OPPS:
+                break
+            if row['id'] not in existing_ids:
+                opportunities.append(dict(row))
+        connection.close()
+    return render_template("all_opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode)
 
 @app.route("/opportunities", methods=["GET"])
 def search_opportunities():
     if not session.get("name"):
         return redirect("/auth/login")
-
     keyword = request.args.get("keyword", "").strip()
     city = request.args.get("city", "").strip()
-
-    # Get user id, city, and skills if not provided
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT id, city, skills FROM users WHERE username = ?", (session.get("name"),))
+    user_crsr.execute("SELECT id, city, skills, state FROM users WHERE username = ?", (session.get("name"),))
     user = user_crsr.fetchone()
     user_connection.close()
-
     if not user:
         return redirect("/auth/login")
-
     search_city = city if city else user["city"]
-
-    # After reading keyword and city:
-    include_types = []
-    if request.args.get('include_conferences'): include_types.append('conference')
-    if request.args.get('include_hackathons'): include_types.append('hackathon')
-    if request.args.get('include_contests'): include_types.append('contest')
-    if request.args.get('include_competitions'): include_types.append('competition')
-    if request.args.get('include_meetups'): include_types.append('meetup')
-
-    # Combine keyword and event types for search
-    all_keywords = [keyword] if keyword else []
-    all_keywords += include_types
-
+    event_types = list(EVENT_TYPE_ALIASES.keys())
+    include_types = [etype for etype in event_types if request.args.get(f'include_{etype}s')]
+    extracted_types = extract_event_types_from_text(keyword) if keyword else []
+    for etype in extracted_types:
+        if etype not in include_types:
+            include_types.append(etype)
+    all_keywords = [e for e in include_types] + ([keyword] if keyword else [])
     used_skills = get_user_skills(user)
-    # Only check non-empty, non-trivial skills/keywords
+    MAX_SKILLS = 5
+    if len(used_skills) > MAX_SKILLS:
+        used_skills = used_skills[:MAX_SKILLS]
     flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
     flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
     if flagged_skills or flagged_keywords:
@@ -395,38 +485,95 @@ def search_opportunities():
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
-    query = "SELECT * FROM opportunities WHERE 1=1"
-    params = []
+    base_query = "SELECT * FROM opportunities WHERE 1=1"
+    base_params = []
     if search_city:
-        query += " AND LOWER(city) LIKE ?"
-        params.append(f"%{search_city.lower()}%")
-    if all_keywords:
-        keyword_clauses = []
-        keyword_params = []
-        for kw in all_keywords:
-            if kw:
-                keyword_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)")
-                keyword_params.extend([f"%{kw.lower()}%"] * 4)
-        if keyword_clauses:
-            query += " AND (" + " OR ".join(keyword_clauses) + ")"
-            params.extend(keyword_params)
-    if used_skills:
-        skill_clauses = []
-        skill_params = []
-        for skill in used_skills:
-            skill_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ?)")
-            skill_params.extend([f"%{skill}%"] * 3)
-        if skill_clauses:
-            query += " AND (" + " OR ".join(skill_clauses) + ")"
-            params.extend(skill_params)
-        query += " ORDER BY RANDOM()"
+        base_query += " AND LOWER(city) LIKE ?"
+        base_params.append(f"%{search_city.lower()}%")
+    skill_fields = ["title", "description", "organization_name", "location"]
+    # Determine if this is an event-only search
+    event_only_mode = False
+    if include_types and (not keyword or all(w in include_types for w in extract_event_types_from_text(keyword))):
+        event_only_mode = True
+    print(f"[DEBUG][opportunities] Event types included: {include_types}, event_only_mode: {event_only_mode}")
+    # Build event-type-only query if in event_only_mode
+    if event_only_mode:
+        event_clauses = []
+        event_params = []
+        for etype in include_types:
+            for alias in EVENT_TYPE_ALIASES[etype]:
+                event_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
+                event_params.extend([f"%{alias}%"] * len(skill_fields))
+        if event_clauses:
+            base_query += " AND (" + " OR ".join(event_clauses) + ")"
+            base_params.extend(event_params)
+        print(f"[DEBUG][opportunities] Event-only query: {base_query}, params: {base_params}")
+        crsr.execute(base_query, base_params)
+        opportunities = [dict(row) for row in crsr.fetchall()]
+        print(f"[DEBUG][opportunities] Found {len(opportunities)} events (event_only_mode)")
+        randomized = False
+        fallback_label = None
     else:
-        query += " ORDER BY RANDOM()"
-    crsr.execute(query, params)
-    opportunities = [dict(row) for row in crsr.fetchall()]
+        combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
+        opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, base_query, base_params, skill_fields, debug_label="opportunities")
     connection.close()
-    randomized = not used_skills
-    return render_template("opportunities.html", opportunities=opportunities, randomized=randomized)
+    # If still empty, use ChatGPT to generate events (not just volunteer opps) for event types
+    if event_only_mode and not opportunities and include_types:
+        keyword_part = f". Every event must be directly about '{keyword}' and the keyword must appear as a whole word in the event's title or description." if keyword else ""
+        chatgpt_prompt = f"Generate 5 real or plausible events (not just volunteer opportunities) in {search_city} for the following types: {', '.join(include_types)}{keyword_part} For each event, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nState: [State]\nLocation: [Location]\nDuration: [Duration]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each event with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."
+        opportunities_text = get_opportunities_from_chatgpt(search_city, custom_prompt=chatgpt_prompt)
+        if opportunities_text:
+            parsed_opportunities = extract_opportunity_info(opportunities_text, user.get("state"))
+            if keyword:
+                import re
+                keyword_lc = keyword.lower()
+                before_count = len(parsed_opportunities)
+                def keyword_in_text(text):
+                    return bool(re.search(rf"\\b{re.escape(keyword_lc)}\\b", text.lower()))
+                parsed_opportunities = [opp for opp in parsed_opportunities if keyword_in_text(opp.get('title', '')) or keyword_in_text(opp.get('description', ''))]
+                print(f"[DEBUG][opportunities] {before_count} events generated, {len(parsed_opportunities)} passed WHOLE WORD keyword filter in title/description.")
+            connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
+            crsr = connection.cursor()
+            inserted_count = 0
+            for opp in parsed_opportunities:
+                if insert_opportunity_safely(crsr, opp):
+                    inserted_count += 1
+            connection.commit()
+            connection.close()
+            print(f"Inserted {inserted_count} new events for {search_city} (event_only_mode fallback, keyword filtered)")
+            # Try again with event-only query
+            connection = sqlite3.connect("opportunities.db")
+            connection.row_factory = sqlite3.Row
+            crsr = connection.cursor()
+            base_query2 = "SELECT * FROM opportunities WHERE 1=1"
+            base_params2 = []
+            if search_city:
+                base_query2 += " AND LOWER(city) LIKE ?"
+                base_params2.append(f"%{search_city.lower()}%")
+            event_clauses = []
+            event_params = []
+            for etype in include_types:
+                for alias in EVENT_TYPE_ALIASES[etype]:
+                    event_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
+                    event_params.extend([f"%{alias}%"] * len(skill_fields))
+            if event_clauses:
+                base_query2 += " AND (" + " OR ".join(event_clauses) + ")"
+                base_params2.extend(event_params)
+            if keyword:
+                base_query2 += " AND (" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")"
+                base_params2.extend([f"%{keyword.lower()}%"] * len(skill_fields))
+            crsr.execute(base_query2, base_params2)
+            opportunities = [dict(row) for row in crsr.fetchall()]
+            connection.close()
+            randomized = False
+            # If still no results, show a user-friendly message
+            if not opportunities:
+                return render_template("opportunities.html", opportunities=[], randomized=False, rare_message=None, event_only_mode=event_only_mode, error_message="No events found for your search. Try a different keyword or event type.")
+    rare_message = None
+    if not event_only_mode and fallback_label == "random":
+        rare_message = "That's quite a specialty, a rare one!"
+    return render_template("opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode)
 
 @app.route("/fetch_opportunities_background", methods=["POST"])
 def fetch_opportunities_background():
@@ -444,15 +591,19 @@ def fetch_opportunities_background():
     if not user or not user["city"]:
         return jsonify({"error": "No city found for user"}), 400
 
+    # Get keyword from request (if present)
+    data = request.get_json(silent=True) or {}
+    keyword = data.get("keyword", None)
+
     # Fetch new opportunities from ChatGPT
-    opportunities_text = get_opportunities_from_chatgpt(user["city"])
-    print("[DEBUG] Raw ChatGPT output:")
-    print(opportunities_text)
+    if keyword:
+        chatgpt_prompt = f"""Generate 5 volunteer opportunities in {user['city']} related to '{keyword}'. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
+        opportunities_text = get_opportunities_from_chatgpt(user["city"], custom_prompt=chatgpt_prompt)
+    else:
+        opportunities_text = get_opportunities_from_chatgpt(user["city"])
     user_state = user["state"] if "state" in user.keys() else None
     if opportunities_text:
         parsed_opportunities = extract_opportunity_info(opportunities_text, user_state)
-        print("[DEBUG] Parsed opportunities:")
-        print(parsed_opportunities)
         connection = sqlite3.connect("opportunities.db")
         connection.row_factory = sqlite3.Row
         crsr = connection.cursor()

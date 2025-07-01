@@ -321,9 +321,21 @@
 {% endblock %}
 
 {% block content %}
+{% if event_only_mode %}
+<div class="event-only-message" style="background:#23272a;color:#3b82f6;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;font-weight:700;">
+    Showing all events (not just volunteer opportunities)
+</div>
+{% endif %}
+
 {% if error_message %}
 <div style="background:#fbbf24;color:#23272a;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;font-weight:700;">
     {{ error_message }}
+</div>
+{% endif %}
+
+{% if randomized %}
+<div class="randomized-message" style="background:#23272a;color:#fbbf24;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;">
+    Opportunities are shown in random order. Add your skills/interests in your <a href="/profile" style="color:#3b82f6;text-decoration:underline;">profile</a> for personalized matches!
 </div>
 {% endif %}
 
@@ -471,15 +483,20 @@
         });
     });
 
+    // Run background search for new opportunities using current search params
     function runBackgroundSearch() {
         const params = new URLSearchParams(window.location.search);
-        fetch('/opportunities?' + params.toString(), {
-            method: 'GET',
-            headers: { 'X-Background-Search': '1' }
+        const keyword = params.get('keyword') || '';
+        fetch('/fetch_opportunities_background', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyword: keyword })
         })
-        .then(response => {
-            // Optionally handle background response
-            // console.log('Background search complete');
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.inserted_count > 0) {
+                console.log(`Background: Added ${data.inserted_count} new opportunities.`);
+            }
         });
     }
 
