@@ -52,8 +52,8 @@ def get_opportunities_from_chatgpt(city):
     system_prompt = (
         "You are a helpful assistant for a volunteer opportunities platform. "
         "If the user prompt or any input contains inappropriate, offensive, unsafe, or non-family-friendly content, "
-        "refuse to generate results and respond with an error message indicating the input is inappropriate. "
         "Never return or generate any inappropriate, offensive, or unsafe content."
+        "The opportunities have to be real and currently available."
     )
     prompt = f"""Generate 5 volunteer opportunities in {city}. For each opportunity, provide the following information in this exact format:
 
@@ -94,19 +94,21 @@ def extract_opportunity_info(text, user_state=None):
             "title": re.search(r"Title:\s*(.*?)(?:\n|$)", opp),
             "description": re.search(r"Description:\s*(.*?)(?:\n|$)", opp),
             "city": re.search(r"City:\s*(.*?)(?:\n|$)", opp),
-            "state": re.search(r"State:\s*(.*?)(?:\n|$)", opp),
+            # Always fallback to user_state if not present
+            "state": re.search(r"State:\s*(.*?)(?:\n|$)", opp) or None,
             "location": re.search(r"Location:\s*(.*?)(?:\n|$)", opp),
             "duration": re.search(r"Duration:\s*(.*?)(?:\n|$)", opp),
             "volunteers_needed": re.search(r"Volunteers Needed:\s*(\d+)", opp),
             "contact_info": re.search(r"Contact Info:\s*(.*?)(?:\n|$)", opp),
             "apply_link": re.search(r"Apply Link:\s*(.*?)(?:\n|$)", opp)
         }
+        state_value = fields["state"].group(1).strip() if fields["state"] and hasattr(fields["state"], 'group') else (user_state or "Unknown State")
         opportunity = {
             "organization_name": fields["organization_name"].group(1).strip() if fields["organization_name"] else "Unknown Organization",
             "title": fields["title"].group(1).strip() if fields["title"] else "Untitled Opportunity",
             "description": fields["description"].group(1).strip() if fields["description"] else "No description provided",
             "city": fields["city"].group(1).strip() if fields["city"] else "Unknown City",
-            "state": fields["state"].group(1).strip() if fields["state"] else (user_state or "Unknown State"),
+            "state": state_value,
             "location": fields["location"].group(1).strip() if fields["location"] else "Unknown Location",
             "duration": fields["duration"].group(1).strip() if fields["duration"] else "Not specified",
             "volunteers_needed": int(fields["volunteers_needed"].group(1)) if fields["volunteers_needed"] else 1,
@@ -116,15 +118,19 @@ def extract_opportunity_info(text, user_state=None):
         parsed_opportunities.append(opportunity)
     return parsed_opportunities
 
-# --- PATCH: Inappropriate input filter ---
-INAPPROPRIATE_WORDS = [
-    'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'dick', 'cunt', 'slut', 'whore', 'fag', 'nigger', 'retard', 'idiot', 'moron', 'dumb', 'stupid', 'kill', 'rape', 'terrorist', 'bomb', 'suicide', 'die', 'racist', 'sexist', 'homophobic', 'transphobic', 'hate', 'violence', 'abuse', 'bully', 'threat', 'offensive', 'inappropriate', 'rude', 'obscene', 'vulgar', 'disgusting', 'gross', 'pervert', 'creep', 'pedophile', 'zoophile', 'incest', 'bestiality', 'necrophilia', 'molest', 'harass', 'groom', 'grooming', 'exploit', 'exploitative', 'predator', 'predatory', 'porn', 'pornography', 'sex', 'sexual', 'nude', 'naked', 'genital', 'penis', 'vagina', 'anus', 'anal', 'cum', 'ejaculate', 'masturbate', 'masturbation', 'orgasm', 'erection', 'sperm', 'semen', 'clitoris', 'vulva', 'testicle', 'scrotum', 'breast', 'boob', 'nipples', 'butt', 'ass', 'fisting', 'fist', 'suck', 'lick', 'blowjob', 'handjob', 'gangbang', 'bdsm', 'bondage', 'dominatrix', 'submissive', 'dominant', 'fetish', 'kink', 'spank', 'spanking', 'whip', 'whipping', 'choke', 'choking', 'strangle', 'strangling', 'rape', 'rapist', 'molester', 'incest', 'bestiality', 'necrophilia', 'zoophilia', 'pedophilia', 'pedophile', 'groom', 'grooming', 'exploit', 'exploiting', 'predator', 'predatory', 'abuse', 'abusive', 'harass', 'harassment', 'bully', 'bullying', 'threat', 'threaten', 'threatening', 'violence', 'violent', 'hate', 'hateful', 'racist', 'sexist', 'homophobic', 'transphobic', 'bigot', 'bigotry', 'discriminate', 'discrimination', 'slur', 'slurs', 'offensive', 'offend', 'offending', 'obscene', 'obscenity', 'vulgar', 'vulgarity', 'disgust', 'disgusting', 'gross', 'pervert', 'perverted', 'creep', 'creepy', 'inappropriate', 'inappropriateness', 'rude', 'rudeness', 'insult', 'insulting', 'demean', 'demeaning', 'degrade', 'degrading', 'humiliate', 'humiliating', 'shame', 'shaming', 'mock', 'mocking', 'ridicule', 'ridiculing', 'taunt', 'taunting', 'jeer', 'jeering', 'slander', 'slandering', 'libel', 'libeling', 'defame', 'defaming', 'defamation', 'smear', 'smearing', 'malign', 'maligning', 'vilify', 'vilifying', 'denigrate', 'denigrating', 'belittle', 'belittling', 'patronize', 'patronizing', 'condescend', 'condescending', 'disparage', 'disparaging', 'deride', 'deriding', 'derision', 'scorn', 'scorning', 'contempt', 'contemptuous', 'disdain', 'disdainful', 'disrespect', 'disrespectful', 'insult', 'insulting', 'offend', 'offending', 'offensive', 'obscene', 'obscenity', 'vulgar', 'vulgarity', 'disgust', 'disgusting', 'gross', 'pervert', 'perverted', 'creep', 'creepy', 'inappropriate', 'inappropriateness', 'rude', 'rudeness', 'insult', 'insulting', 'demean', 'demeaning', 'degrade', 'degrading', 'humiliate', 'humiliating', 'shame', 'shaming', 'mock', 'mocking', 'ridicule', 'ridiculing', 'taunt', 'taunting', 'jeer', 'jeering', 'slander', 'slandering', 'libel', 'libeling', 'defame', 'defaming', 'defamation', 'smear', 'smearing', 'malign', 'maligning', 'vilify', 'vilifying', 'denigrate', 'denigrating', 'belittle', 'belittling', 'patronize', 'patronizing', 'condescend', 'condescending', 'disparage', 'disparaging', 'deride', 'deriding', 'derision', 'scorn', 'scorning', 'contempt', 'contemptuous', 'disdain', 'disdainful', 'disrespect', 'disrespectful'
-]
-def is_inappropriate(text):
-    if not text:
+# --- PATCH: Use OpenAI Moderation API for inappropriate content filtering ---
+def check_inappropriate_openai(text):
+    if not text or not isinstance(text, str) or len(text.strip()) < 3:
         return False
-    text = text.lower()
-    return any(word in text for word in INAPPROPRIATE_WORDS)
+    try:
+        result = openai.Moderation.create(input=text)
+        flagged = result['results'][0]['flagged']
+        if flagged:
+            print(f"[OPENAI MODERATION] Blocked input: {text}")
+        return flagged
+    except Exception as e:
+        print(f"[OPENAI MODERATION] Error: {e}")
+        return False
 
 @app.route("/swipe", methods=["GET"])
 def swipe():
@@ -147,24 +153,24 @@ def swipe():
     opportunities = []
     used_skills = get_user_skills(user)
     # Check for inappropriate skills
-    if any(is_inappropriate(skill) for skill in used_skills):
+    if any(check_inappropriate_openai(skill) for skill in used_skills):
         return render_template("swipe.html", opportunities=[], randomized=False, error_message="Your skills/interests contain inappropriate or offensive language. Please update your profile.")
     while retries < max_retries:
         connection = sqlite3.connect("opportunities.db")
         connection.row_factory = sqlite3.Row
         crsr = connection.cursor()
         if used_skills:
-            # Personalized: prioritize matches by skills
+            # Broader: match ANY skill (OR logic)
             skill_clauses = []
             skill_params = []
             for skill in used_skills:
                 skill_clauses.append("(LOWER(o.title) LIKE ? OR LOWER(o.description) LIKE ? OR LOWER(o.organization_name) LIKE ?)")
                 skill_params.extend([f"%{skill}%"] * 3)
-            skill_query = " AND (" + " OR ".join(skill_clauses) + ")" if skill_clauses else ""
+            skill_query = " OR ".join(skill_clauses)
             crsr.execute(f"""
                 SELECT o.* FROM opportunities o
                 LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-                WHERE uo.id IS NULL AND o.city LIKE ? {skill_query}
+                WHERE uo.id IS NULL AND o.city LIKE ? AND ({skill_query})
                 ORDER BY RANDOM()
             """, [user["id"], f"%{user['city']}%"] + skill_params)
         else:
@@ -196,7 +202,6 @@ def swipe():
             connection.close()
             print(f"Inserted {inserted_count} new opportunities for {user['city']}")
         retries += 1
-    # PATCH: If no skills, set a flag for UI
     randomized = not used_skills
     return render_template("swipe.html", opportunities=opportunities, randomized=randomized)
 
@@ -304,8 +309,11 @@ def all_opportunities():
     all_keywords += include_types
 
     used_skills = get_user_skills(user)
-    # Check for inappropriate skills and keywords
-    if any(is_inappropriate(skill) for skill in used_skills) or any(is_inappropriate(kw) for kw in all_keywords):
+    # Only check non-empty, non-trivial skills/keywords
+    flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
+    flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
+    if flagged_skills or flagged_keywords:
+        print(f"[INAPPROPRIATE] Blocked skills: {flagged_skills}, keywords: {flagged_keywords}")
         return render_template("all_opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.")
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
@@ -378,8 +386,11 @@ def search_opportunities():
     all_keywords += include_types
 
     used_skills = get_user_skills(user)
-    # Check for inappropriate skills and keywords
-    if any(is_inappropriate(skill) for skill in used_skills) or any(is_inappropriate(kw) for kw in all_keywords):
+    # Only check non-empty, non-trivial skills/keywords
+    flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
+    flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
+    if flagged_skills or flagged_keywords:
+        print(f"[INAPPROPRIATE] Blocked skills: {flagged_skills}, keywords: {flagged_keywords}")
         return render_template("opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.")
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
@@ -422,11 +433,11 @@ def fetch_opportunities_background():
     if not session.get("name"):
         return jsonify({"error": "Not logged in"}), 401
 
-    # Get user city
+    # Get user city and state
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT city FROM users WHERE username = ?", (session["name"],))
+    user_crsr.execute("SELECT city, state FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
 
@@ -435,8 +446,13 @@ def fetch_opportunities_background():
 
     # Fetch new opportunities from ChatGPT
     opportunities_text = get_opportunities_from_chatgpt(user["city"])
+    print("[DEBUG] Raw ChatGPT output:")
+    print(opportunities_text)
+    user_state = user["state"] if "state" in user.keys() else None
     if opportunities_text:
-        parsed_opportunities = extract_opportunity_info(opportunities_text, user["state"])
+        parsed_opportunities = extract_opportunity_info(opportunities_text, user_state)
+        print("[DEBUG] Parsed opportunities:")
+        print(parsed_opportunities)
         connection = sqlite3.connect("opportunities.db")
         connection.row_factory = sqlite3.Row
         crsr = connection.cursor()
@@ -1042,6 +1058,71 @@ Only include real opportunities with working links. Separate each opportunity wi
                         except Exception as e:
                             message = f"No matching opportunities found for your resume, and failed to fetch from ChatGPT: {e}"
     return render_template("resume_match.html", message=message, matched_opportunities=matched_opportunities, extracted_skills=extracted_skills)
+
+@app.route('/generate-ai-email', methods=['POST'])
+def generate_ai_email():
+    if not session.get('name'):
+        return jsonify({'error': 'Not logged in'}), 401
+    data = request.get_json()
+    opportunity = data.get('opportunity')
+    if not opportunity:
+        return jsonify({'error': 'No opportunity provided'}), 400
+    # Get user info
+    user_connection = sqlite3.connect('users.db')
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute('SELECT name, emailAddress, city, state, skills FROM users WHERE username = ?', (session['name'],))
+    user = user_crsr.fetchone()
+    user_connection.close()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    user_name = user['name'] or session['name']
+    user_email = user['emailAddress']
+    user_city = user['city']
+    user_state = user['state']
+    user_skills = user['skills'] or ''
+    # Compose prompt
+    system_prompt = (
+        "You are an expert assistant that writes professional, warm, and human-sounding emails for volunteers. "
+        "If the user or opportunity contains inappropriate, offensive, or unsafe content, refuse to generate an email. "
+        "Make the email sound genuinely human, friendly, and enthusiastic, and tailor it to the opportunity and the user's skills and interests if relevant. "
+        "Do not include any inappropriate or unsafe content."
+    )
+    user_prompt = f"""
+Write a professional, friendly, and human-sounding email for a volunteer to send to the following opportunity. The email should be personalized to the opportunity and the user's background, skills, and interests if relevant. Make it sound warm, enthusiastic, and authentic. Do not include any inappropriate or unsafe content.
+
+User Name: {user_name}
+User Email: {user_email}
+User City: {user_city}
+User State: {user_state}
+User Skills/Interests: {user_skills}
+
+Opportunity Details:
+Organization Name: {opportunity.get('organization_name', '')}
+Title: {opportunity.get('title', '')}
+Description: {opportunity.get('description', '')}
+City: {opportunity.get('city', '')}
+State: {opportunity.get('state', '')}
+Location: {opportunity.get('location', '')}
+Duration: {opportunity.get('duration', '')}
+Volunteers Needed: {opportunity.get('volunteers_needed', '')}
+Contact Info: {opportunity.get('contact_info', '')}
+Apply Link: {opportunity.get('apply_link', '')}
+
+The email should be ready to send, with a subject line and a professional closing.
+"""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        email_text = response["choices"][0]["message"]["content"].strip()
+        return jsonify({'email': email_text})
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate email: {e}'})
 
 # Initialize database tables if they don't exist
 init_db()

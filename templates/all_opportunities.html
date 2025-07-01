@@ -295,4 +295,18 @@ body {
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+{% block extra_js %}
+<script>
+window.addEventListener('DOMContentLoaded', function() {
+    fetch('/fetch_opportunities_background', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.inserted_count > 0) {
+                console.log(`Background: Added ${data.inserted_count} new opportunities.`);
+            }
+        });
+});
+</script>
+{% endblock %}
 {% endblock %}

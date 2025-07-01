@@ -163,6 +163,8 @@
         40% { content: ".."; }
         60%, 100% { content: "..."; }
     }
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+    #ai-email-modal::-webkit-scrollbar { display: none; }
 </style>
 {% endblock %}
 
@@ -208,6 +210,7 @@
                     {% if opportunity.apply_link %}
                     <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank" style="margin: 1rem 0;">Apply Now</a>
                     {% endif %}
+                    <button class="button button-secondary ai-email-btn" style="margin:0.5rem 0 1rem 0;" onclick="openEmailModal({{ opportunity|tojson }})">Generate AI Email</button>
                     <div class="action-buttons">
                         <button class="action-button dislike" onclick="handleAction('dislike', {{ loop.index0 }})">✕</button>
                         <button class="action-button flip" onclick="flipCard({{ loop.index0 }})">🔄</button>
@@ -226,6 +229,21 @@
         </div>
     {% endif %}
 </div>
+
+<!-- AI Email Modal -->
+<div id="ai-email-modal" style="display:none;position:fixed;z-index:10000;top:0;left:0;width:100vw;height:100vh;background:rgba(24,26,27,0.92);backdrop-filter:blur(2px);align-items:center;justify-content:center;">
+    <div id="ai-email-modal-content" style="background:#23272a;border-radius:1.5rem;max-width:540px;width:90vw;padding:2.5rem 2rem;box-shadow:0 8px 32px rgba(59,130,246,0.18);position:relative;display:flex;flex-direction:column;align-items:stretch;">
+        <button onclick="closeEmailModal()" style="position:absolute;top:1.2rem;right:1.5rem;background:none;border:none;font-size:1.5rem;color:#fff;cursor:pointer;">&times;</button>
+        <h2 style="color:#3b82f6;font-size:1.4rem;font-weight:700;margin-bottom:1.2rem;text-align:center;">AI-Generated Email</h2>
+        <div id="ai-email-loading" style="display:none;text-align:center;margin:2rem 0;">
+            <div class="spinner" style="margin:0 auto 1rem auto;width:48px;height:48px;border:5px solid #3b82f6;border-top:5px solid #23272a;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            <div style="color:#bfc9d1;">Generating your personalized email...</div>
+        </div>
+        <div id="ai-email-content" style="display:none;background:#181a1b;border-radius:1rem;padding:1.2rem 1rem;color:#e0e0e0;font-size:1.08em;line-height:1.7;white-space:pre-line;box-shadow:0 2px 8px rgba(59,130,246,0.07);margin-bottom:1.2rem;"></div>
+        <button id="copy-email-btn" style="display:none;background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;border:none;border-radius:1rem;padding:0.7rem 1.5rem;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;align-self:center;">Copy Email</button>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -233,6 +251,17 @@
 // --- Swipe/Drag/Keyboard Logic ---
 let current = 0;
 const cards = Array.from(document.querySelectorAll('.flip-card'));
+
+// Background fetch for new opportunities on page load
+window.addEventListener('DOMContentLoaded', function() {
+    fetch('/fetch_opportunities_background', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.inserted_count > 0) {
+                console.log(`Background: Added ${data.inserted_count} new opportunities.`);
+            }
+        });
+});
 
 function showCard(idx) {
     cards.forEach((c, i) => {
@@ -290,64 +319,16 @@ function handleAction(action, index) {
             current = index + 1;
         } else {
             // If this was the last card, trigger background fetch
-            if (!window._oppsBackgroundFetchTriggered) {
-                window._oppsBackgroundFetchTriggered = true;
-                showBackgroundFetchMessage();
-                fetch('/fetch_opportunities_background', { method: 'POST' })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            const count = data.inserted_count || 0;
-                            if (count > 0) {
-                                updateBackgroundFetchMessage(`Added ${count} new opportunities! Please refresh in a moment.`);
-                            } else {
-                                updateBackgroundFetchMessage('No new opportunities found at this time.');
-                            }
-                        } else {
-                            updateBackgroundFetchMessage('No new opportunities found at this time.');
-                        }
-                        setTimeout(hideBackgroundFetchMessage, 4000);
-                    })
-                    .catch(() => {
-                        updateBackgroundFetchMessage('Error fetching new opportunities.');
-                        setTimeout(hideBackgroundFetchMessage, 4000);
-                    });
-            }
+            fetch('/fetch_opportunities_background', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.inserted_count > 0) {
+                        console.log(`Background: Added ${data.inserted_count} new opportunities.`);
+                    }
+                });
             window.location.reload();
         }
     }, 300);
-}
-
-// Helper functions for background fetch message
-function showBackgroundFetchMessage() {
-    let msg = document.getElementById('background-fetch-msg');
-    if (!msg) {
-        msg = document.createElement('div');
-        msg.id = 'background-fetch-msg';
-        msg.style.position = 'fixed';
-        msg.style.bottom = '30px';
-        msg.style.left = '50%';
-        msg.style.transform = 'translateX(-50%)';
-        msg.style.background = 'var(--bg-secondary)';
-        msg.style.color = 'var(--text-primary)';
-        msg.style.padding = '1rem 2rem';
-        msg.style.borderRadius = '1rem';
-        msg.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-        msg.style.zIndex = '9999';
-        msg.textContent = 'Fetching new opportunities...';
-        document.body.appendChild(msg);
-    } else {
-        msg.textContent = 'Fetching new opportunities...';
-        msg.style.display = 'block';
-    }
-}
-function updateBackgroundFetchMessage(text) {
-    let msg = document.getElementById('background-fetch-msg');
-    if (msg) msg.textContent = text;
-}
-function hideBackgroundFetchMessage() {
-    let msg = document.getElementById('background-fetch-msg');
-    if (msg) msg.style.display = 'none';
 }
 
 // Drag logic
@@ -411,5 +392,48 @@ window.addEventListener('keydown', function(e) {
 });
 
 showCard(0);
+
+function openEmailModal(opportunity) {
+    const modal = document.getElementById('ai-email-modal');
+    const content = document.getElementById('ai-email-content');
+    const loading = document.getElementById('ai-email-loading');
+    const copyBtn = document.getElementById('copy-email-btn');
+    modal.style.display = 'flex';
+    content.style.display = 'none';
+    copyBtn.style.display = 'none';
+    loading.style.display = 'block';
+    // Fetch AI email
+    fetch('/generate-ai-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opportunity: opportunity })
+    })
+    .then(res => res.json())
+    .then(data => {
+        loading.style.display = 'none';
+        if (data && data.email) {
+            content.textContent = data.email;
+            content.style.display = 'block';
+            copyBtn.style.display = 'inline-block';
+        } else {
+            content.textContent = data.error || 'Failed to generate email.';
+            content.style.display = 'block';
+        }
+    })
+    .catch(() => {
+        loading.style.display = 'none';
+        content.textContent = 'Failed to generate email.';
+        content.style.display = 'block';
+    });
+}
+function closeEmailModal() {
+    document.getElementById('ai-email-modal').style.display = 'none';
+}
+document.getElementById('copy-email-btn').onclick = function() {
+    const content = document.getElementById('ai-email-content');
+    navigator.clipboard.writeText(content.textContent);
+    this.textContent = 'Copied!';
+    setTimeout(() => { this.textContent = 'Copy Email'; }, 1500);
+};
 </script>
 {% endblock %} 
