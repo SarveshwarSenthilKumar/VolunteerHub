@@ -43,13 +43,6 @@ def signup():
         city = request.form.get('city')
         state = request.form.get('state')
         
-        print(" == Attempting to Create New User ===")
-        print(f"Username: {username}")
-        print(f"Email: {email}")
-        print(f"Name: {name}")
-        print(f"City: {city}")
-        print(f"State: {state}")
-        
         if not all([username, password, email, name, city, state]):
             return render_template('auth/signup.html', error='Please fill in all fields')
         
@@ -96,13 +89,6 @@ def signup():
             new_user = crsr.fetchone()
             
             if new_user:
-                print("\n=== User Successfully Created ===")
-                print(f"User ID: {new_user[0]}")
-                print(f"Username: {new_user[1]}")
-                print(f"Email: {new_user[3]}")
-                print(f"Name: {new_user[4]}")
-                print(f"City: {new_user[5]}")
-                print(f"State: {new_user[6]}")
                 
                 # Set session after successful signup
                 session['username'] = username

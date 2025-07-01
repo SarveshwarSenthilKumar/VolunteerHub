@@ -49,6 +49,12 @@ def index():
             return render_template("/index.html")
 
 def get_opportunities_from_chatgpt(city):
+    system_prompt = (
+        "You are a helpful assistant for a volunteer opportunities platform. "
+        "If the user prompt or any input contains inappropriate, offensive, unsafe, or non-family-friendly content, "
+        "refuse to generate results and respond with an error message indicating the input is inappropriate. "
+        "Never return or generate any inappropriate, offensive, or unsafe content."
+    )
     prompt = f"""Generate 5 volunteer opportunities in {city}. For each opportunity, provide the following information in this exact format:
 
 Organization Name: [Name]
@@ -62,11 +68,13 @@ Contact Info: [Contact Info]
 Apply Link: [Apply Link]
 
 Separate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
-
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ]
         )
         return response["choices"][0]["message"]["content"]
     except Exception as e:
@@ -108,9 +116,18 @@ def extract_opportunity_info(text, user_state=None):
         parsed_opportunities.append(opportunity)
     return parsed_opportunities
 
+# --- PATCH: Inappropriate input filter ---
+INAPPROPRIATE_WORDS = [
+    'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'dick', 'cunt', 'slut', 'whore', 'fag', 'nigger', 'retard', 'idiot', 'moron', 'dumb', 'stupid', 'kill', 'rape', 'terrorist', 'bomb', 'suicide', 'die', 'racist', 'sexist', 'homophobic', 'transphobic', 'hate', 'violence', 'abuse', 'bully', 'threat', 'offensive', 'inappropriate', 'rude', 'obscene', 'vulgar', 'disgusting', 'gross', 'pervert', 'creep', 'pedophile', 'zoophile', 'incest', 'bestiality', 'necrophilia', 'molest', 'harass', 'groom', 'grooming', 'exploit', 'exploitative', 'predator', 'predatory', 'porn', 'pornography', 'sex', 'sexual', 'nude', 'naked', 'genital', 'penis', 'vagina', 'anus', 'anal', 'cum', 'ejaculate', 'masturbate', 'masturbation', 'orgasm', 'erection', 'sperm', 'semen', 'clitoris', 'vulva', 'testicle', 'scrotum', 'breast', 'boob', 'nipples', 'butt', 'ass', 'fisting', 'fist', 'suck', 'lick', 'blowjob', 'handjob', 'gangbang', 'bdsm', 'bondage', 'dominatrix', 'submissive', 'dominant', 'fetish', 'kink', 'spank', 'spanking', 'whip', 'whipping', 'choke', 'choking', 'strangle', 'strangling', 'rape', 'rapist', 'molester', 'incest', 'bestiality', 'necrophilia', 'zoophilia', 'pedophilia', 'pedophile', 'groom', 'grooming', 'exploit', 'exploiting', 'predator', 'predatory', 'abuse', 'abusive', 'harass', 'harassment', 'bully', 'bullying', 'threat', 'threaten', 'threatening', 'violence', 'violent', 'hate', 'hateful', 'racist', 'sexist', 'homophobic', 'transphobic', 'bigot', 'bigotry', 'discriminate', 'discrimination', 'slur', 'slurs', 'offensive', 'offend', 'offending', 'obscene', 'obscenity', 'vulgar', 'vulgarity', 'disgust', 'disgusting', 'gross', 'pervert', 'perverted', 'creep', 'creepy', 'inappropriate', 'inappropriateness', 'rude', 'rudeness', 'insult', 'insulting', 'demean', 'demeaning', 'degrade', 'degrading', 'humiliate', 'humiliating', 'shame', 'shaming', 'mock', 'mocking', 'ridicule', 'ridiculing', 'taunt', 'taunting', 'jeer', 'jeering', 'slander', 'slandering', 'libel', 'libeling', 'defame', 'defaming', 'defamation', 'smear', 'smearing', 'malign', 'maligning', 'vilify', 'vilifying', 'denigrate', 'denigrating', 'belittle', 'belittling', 'patronize', 'patronizing', 'condescend', 'condescending', 'disparage', 'disparaging', 'deride', 'deriding', 'derision', 'scorn', 'scorning', 'contempt', 'contemptuous', 'disdain', 'disdainful', 'disrespect', 'disrespectful', 'insult', 'insulting', 'offend', 'offending', 'offensive', 'obscene', 'obscenity', 'vulgar', 'vulgarity', 'disgust', 'disgusting', 'gross', 'pervert', 'perverted', 'creep', 'creepy', 'inappropriate', 'inappropriateness', 'rude', 'rudeness', 'insult', 'insulting', 'demean', 'demeaning', 'degrade', 'degrading', 'humiliate', 'humiliating', 'shame', 'shaming', 'mock', 'mocking', 'ridicule', 'ridiculing', 'taunt', 'taunting', 'jeer', 'jeering', 'slander', 'slandering', 'libel', 'libeling', 'defame', 'defaming', 'defamation', 'smear', 'smearing', 'malign', 'maligning', 'vilify', 'vilifying', 'denigrate', 'denigrating', 'belittle', 'belittling', 'patronize', 'patronizing', 'condescend', 'condescending', 'disparage', 'disparaging', 'deride', 'deriding', 'derision', 'scorn', 'scorning', 'contempt', 'contemptuous', 'disdain', 'disdainful', 'disrespect', 'disrespectful'
+]
+def is_inappropriate(text):
+    if not text:
+        return False
+    text = text.lower()
+    return any(word in text for word in INAPPROPRIATE_WORDS)
+
 @app.route("/swipe", methods=["GET"])
 def swipe():
-    print(session.get("name"))
     if not session.get("name"):
         return redirect("/auth/login")
 
@@ -122,8 +139,6 @@ def swipe():
     user = user_crsr.fetchone()
     user_connection.close()
 
-    print(user)
-
     if not user or not user["city"]:
         return redirect("/auth/login")
 
@@ -131,6 +146,9 @@ def swipe():
     retries = 0
     opportunities = []
     used_skills = get_user_skills(user)
+    # Check for inappropriate skills
+    if any(is_inappropriate(skill) for skill in used_skills):
+        return render_template("swipe.html", opportunities=[], randomized=False, error_message="Your skills/interests contain inappropriate or offensive language. Please update your profile.")
     while retries < max_retries:
         connection = sqlite3.connect("opportunities.db")
         connection.row_factory = sqlite3.Row
@@ -286,6 +304,9 @@ def all_opportunities():
     all_keywords += include_types
 
     used_skills = get_user_skills(user)
+    # Check for inappropriate skills and keywords
+    if any(is_inappropriate(skill) for skill in used_skills) or any(is_inappropriate(kw) for kw in all_keywords):
+        return render_template("all_opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.")
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
@@ -357,6 +378,9 @@ def search_opportunities():
     all_keywords += include_types
 
     used_skills = get_user_skills(user)
+    # Check for inappropriate skills and keywords
+    if any(is_inappropriate(skill) for skill in used_skills) or any(is_inappropriate(kw) for kw in all_keywords):
+        return render_template("opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.")
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
@@ -956,7 +980,10 @@ Resume:
                     try:
                         response = openai.ChatCompletion.create(
                             model="gpt-3.5-turbo",
-                            messages=[{"role": "user", "content": prompt}]
+                            messages=[
+                                {"role": "system", "content": SYSTEM_PROMPT},
+                                {"role": "user", "content": prompt}
+                            ]
                         )
                         skills_str = response["choices"][0]["message"]["content"].strip()
                         extracted_skills = [s.strip() for s in skills_str.split(",") if s.strip()]
@@ -1002,7 +1029,10 @@ Only include real opportunities with working links. Separate each opportunity wi
                         try:
                             response = openai.ChatCompletion.create(
                                 model="gpt-3.5-turbo",
-                                messages=[{"role": "user", "content": chat_prompt}]
+                                messages=[
+                                    {"role": "system", "content": SYSTEM_PROMPT},
+                                    {"role": "user", "content": chat_prompt}
+                                ]
                             )
                             opp_text = response["choices"][0]["message"]["content"].strip()
                             # Use the extract_opportunity_info function to parse
@@ -1037,3 +1067,11 @@ def get_user_skills(user):
     if not skills_str:
         return []
     return [s.strip().lower() for s in skills_str.split(",") if s.strip()]
+
+# PATCH: Add system prompt for inappropriate content to resume skill extraction and resume-match
+SYSTEM_PROMPT = (
+    "You are a helpful assistant for a volunteer opportunities platform. "
+    "If the user prompt or any input contains inappropriate, offensive, unsafe, or non-family-friendly content, "
+    "refuse to generate results and respond with an error message indicating the input is inappropriate. "
+    "Never return or generate any inappropriate, offensive, or unsafe content."
+)
