@@ -173,6 +173,14 @@
                     </button>
                 </div>
             </div>
+            <div class="form-group">
+                <label for="skills">Skills & Interests:</label>
+                <div id="skills-input-container" class="skills-bubbles" style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.5rem;background:#23272a;padding:0.5rem 0.75rem;border-radius:0.5rem;min-height:2.5rem;align-items:center;">
+                    <!-- Bubbles will be rendered here by JS -->
+                    <input type="text" id="skills-input" placeholder="Type a skill and press comma..." style="border:none;outline:none;background:transparent;color:#fff;flex:1;min-width:120px;" autocomplete="off">
+                </div>
+                <input type="hidden" id="skills" name="skills" value="{{ user.skills or '' }}">
+            </div>
             <div class="resume-section">
                 <div class="resume-label">Resume (PDF only)</div>
                 {% if has_resume %}
@@ -206,6 +214,72 @@
             icon.classList.add('fa-eye');
         }
     }
+    </script>
+    <script>
+    // --- Dynamic Skills Bubble Input ---
+    (function() {
+        const initialSkills = ({{ user.skills|tojson }} || '').split(',').map(s => s.trim()).filter(Boolean);
+        let skills = [...initialSkills];
+        const container = document.getElementById('skills-input-container');
+        const input = document.getElementById('skills-input');
+        const hidden = document.getElementById('skills');
+
+        function render() {
+            // Remove all bubbles except the input
+            Array.from(container.querySelectorAll('.skill-bubble')).forEach(b => b.remove());
+            skills.forEach((skill, idx) => {
+                const bubble = document.createElement('span');
+                bubble.className = 'skill-bubble';
+                bubble.style.cssText = 'background:#3b82f6;color:#fff;border-radius:1rem;padding:0.4rem 1rem;font-size:1em;font-weight:600;display:flex;align-items:center;gap:0.5rem;cursor:default;transition:background 0.2s;';
+                bubble.textContent = skill;
+                // Add remove button
+                const remove = document.createElement('span');
+                remove.textContent = '×';
+                remove.title = 'Remove';
+                remove.style.cssText = 'margin-left:0.5rem;cursor:pointer;font-weight:bold;';
+                remove.onmouseover = () => { bubble.style.background = '#ef4444'; };
+                remove.onmouseout = () => { bubble.style.background = '#3b82f6'; };
+                remove.onclick = () => {
+                    skills.splice(idx, 1);
+                    render();
+                };
+                bubble.appendChild(remove);
+                container.insertBefore(bubble, input);
+            });
+            // Update hidden input
+            hidden.value = skills.join(',');
+        }
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === ',' || e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
+                const val = input.value.trim().replace(/,$/, '');
+                if (val && !skills.includes(val)) {
+                    skills.push(val);
+                    input.value = '';
+                    render();
+                }
+            } else if (e.key === 'Backspace' && !input.value && skills.length > 0) {
+                // Remove last skill if input is empty
+                skills.pop();
+                render();
+            }
+        });
+        input.addEventListener('blur', function() {
+            const val = input.value.trim().replace(/,$/, '');
+            if (val && !skills.includes(val)) {
+                skills.push(val);
+                input.value = '';
+                render();
+            }
+        });
+        // Prevent form submit on enter in input
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') e.preventDefault();
+        });
+        // Initial render
+        render();
+    })();
     </script>
 </body>
 </html> 

@@ -71,7 +71,8 @@ def create_users_database():
             dateJoined TEXT NOT NULL,
             saved_opportunities TEXT DEFAULT '[]',
             is_admin INTEGER DEFAULT 0,
-            resume BLOB
+            resume BLOB,
+            skills TEXT DEFAULT ''
         )
     """)
     

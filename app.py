@@ -64,11 +64,11 @@ Apply Link: [Apply Link]
 Separate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
 
     try:
-        response = openai.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
-        return response.choices[0].message.content
+        return response["choices"][0]["message"]["content"]
     except Exception as e:
         print(f"Error getting opportunities from ChatGPT: {e}")
         return None
@@ -114,11 +114,11 @@ def swipe():
     if not session.get("name"):
         return redirect("/auth/login")
 
-    # Get user id and city
+    # Get user id, city, and skills
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT id, city, state FROM users WHERE username = ?", (session["name"],))
+    user_crsr.execute("SELECT id, city, state, skills FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
 
@@ -130,16 +130,33 @@ def swipe():
     max_retries = 3
     retries = 0
     opportunities = []
+    used_skills = get_user_skills(user)
     while retries < max_retries:
         connection = sqlite3.connect("opportunities.db")
         connection.row_factory = sqlite3.Row
         crsr = connection.cursor()
-        crsr.execute("""
-            SELECT o.* FROM opportunities o
-            LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-            WHERE uo.id IS NULL AND o.city LIKE ?
-            ORDER BY o.created_at DESC
-        """, (user["id"], f"%{user['city']}%"))
+        if used_skills:
+            # Personalized: prioritize matches by skills
+            skill_clauses = []
+            skill_params = []
+            for skill in used_skills:
+                skill_clauses.append("(LOWER(o.title) LIKE ? OR LOWER(o.description) LIKE ? OR LOWER(o.organization_name) LIKE ?)")
+                skill_params.extend([f"%{skill}%"] * 3)
+            skill_query = " AND (" + " OR ".join(skill_clauses) + ")" if skill_clauses else ""
+            crsr.execute(f"""
+                SELECT o.* FROM opportunities o
+                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
+                WHERE uo.id IS NULL AND o.city LIKE ? {skill_query}
+                ORDER BY RANDOM()
+            """, [user["id"], f"%{user['city']}%"] + skill_params)
+        else:
+            # No skills: randomize
+            crsr.execute("""
+                SELECT o.* FROM opportunities o
+                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
+                WHERE uo.id IS NULL AND o.city LIKE ?
+                ORDER BY RANDOM()
+            """, (user["id"], f"%{user['city']}%"))
         opportunities = [dict(row) for row in crsr.fetchall()]
         connection.close()
         # Filter out opportunities with missing/empty required fields
@@ -160,20 +177,10 @@ def swipe():
             connection.commit()
             connection.close()
             print(f"Inserted {inserted_count} new opportunities for {user['city']}")
-            # Fetch the newly added opportunities
-            connection = sqlite3.connect("opportunities.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            crsr.execute("""
-                SELECT o.* FROM opportunities o
-                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-                WHERE o.city LIKE ?
-                ORDER BY o.created_at DESC
-            """, (user["id"], f"%{user['city']}%"))
-            opportunities = [dict(row) for row in crsr.fetchall()]
-            connection.close()
         retries += 1
-    return render_template("swipe.html", opportunities=opportunities)
+    # PATCH: If no skills, set a flag for UI
+    randomized = not used_skills
+    return render_template("swipe.html", opportunities=opportunities, randomized=randomized)
 
 @app.route("/swipe_action", methods=["POST"])
 def swipe_action():
@@ -256,11 +263,11 @@ def all_opportunities():
     if not session.get("name"):
         return redirect("/auth/login")
 
-    # Get user id and city
+    # Get user id, city, and skills
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session.get("name"),))
+    user_crsr.execute("SELECT id, city, skills FROM users WHERE username = ?", (session.get("name"),))
     user = user_crsr.fetchone()
     user_connection.close()
 
@@ -278,7 +285,7 @@ def all_opportunities():
     all_keywords = [keyword] if keyword else []
     all_keywords += include_types
 
-    # Get all unswiped opportunities for this user, filtered by city and keywords
+    used_skills = get_user_skills(user)
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
@@ -298,12 +305,23 @@ def all_opportunities():
         if keyword_clauses:
             query += " AND (" + " OR ".join(keyword_clauses) + ")"
             params.extend(keyword_params)
-    query += " ORDER BY o.created_at DESC"
+    if used_skills:
+        skill_clauses = []
+        skill_params = []
+        for skill in used_skills:
+            skill_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ?)")
+            skill_params.extend([f"%{skill}%"] * 3)
+        if skill_clauses:
+            query += " AND (" + " OR ".join(skill_clauses) + ")"
+            params.extend(skill_params)
+        query += " ORDER BY RANDOM()"
+    else:
+        query += " ORDER BY RANDOM()"
     crsr.execute(query, params)
     opportunities = [dict(row) for row in crsr.fetchall()]
     connection.close()
-
-    return render_template("all_opportunities.html", opportunities=opportunities)
+    randomized = not used_skills
+    return render_template("all_opportunities.html", opportunities=opportunities, randomized=randomized)
 
 @app.route("/opportunities", methods=["GET"])
 def search_opportunities():
@@ -313,11 +331,11 @@ def search_opportunities():
     keyword = request.args.get("keyword", "").strip()
     city = request.args.get("city", "").strip()
 
-    # Get user id and city if not provided
+    # Get user id, city, and skills if not provided
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT id, city FROM users WHERE username = ?", (session.get("name"),))
+    user_crsr.execute("SELECT id, city, skills FROM users WHERE username = ?", (session.get("name"),))
     user = user_crsr.fetchone()
     user_connection.close()
 
@@ -338,7 +356,7 @@ def search_opportunities():
     all_keywords = [keyword] if keyword else []
     all_keywords += include_types
 
-    # Search in the database first
+    used_skills = get_user_skills(user)
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
@@ -357,115 +375,23 @@ def search_opportunities():
         if keyword_clauses:
             query += " AND (" + " OR ".join(keyword_clauses) + ")"
             params.extend(keyword_params)
-    query += " ORDER BY created_at DESC"
-    print("QUERY:", query)
-    print("PARAMS:", params)
+    if used_skills:
+        skill_clauses = []
+        skill_params = []
+        for skill in used_skills:
+            skill_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ?)")
+            skill_params.extend([f"%{skill}%"] * 3)
+        if skill_clauses:
+            query += " AND (" + " OR ".join(skill_clauses) + ")"
+            params.extend(skill_params)
+        query += " ORDER BY RANDOM()"
+    else:
+        query += " ORDER BY RANDOM()"
     crsr.execute(query, params)
     opportunities = [dict(row) for row in crsr.fetchall()]
     connection.close()
-
-    # --- ChatGPT fallback for new opportunities (commented out for demo) ---
-    
-    if search_city:
-        def get_opportunities_from_chatgpt_with_keyword(city, keyword, event_types=None):
-            # Build a natural language description of what the user is searching for
-            search_desc = f"volunteer opportunities in {city}"
-            if keyword:
-                search_desc += f" related to '{keyword}'"
-            if event_types:
-                event_names = ', '.join(event_types)
-                search_desc += f" and ONLY include events of these types: {event_names}"
-            prompt = f"""
-Generate 5 real, currently active, and verifiable {search_desc}. For each opportunity, provide the following information in this exact format:
-
-Organization Name: [Name]
-Title: [Title]
-Description: [Description]
-City: [City]
-Location: [Location]
-Duration: [Duration]
-Volunteers Needed: [Number]
-Contact Info: [Contact Info]
-Apply Link: [Apply Link]
-
-IMPORTANT INSTRUCTIONS:
-- If event types are specified, ONLY include opportunities that are {event_names if event_types else 'any type'}.
-- Only include opportunities from well-known, reputable, and established organizations (such as United Way, Red Cross, Habitat for Humanity, local government, or major nonprofits).
-- The Apply Link must be a real, working, and direct URL to an actual volunteer opportunity or application page (not just the organization's homepage).
-- Do NOT include any links that are placeholders, made up, or that return a 404 or 'not found' error.
-- Do NOT use example.com, volunteerhub.com, or any fake or generic links.
-- Double-check that each link is valid and leads to a real opportunity.
-- Do NOT include any fictional or placeholder data.
-- Separate each opportunity with a blank line.
-"""
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                return response["choices"][0]["message"]["content"].strip()
-            except Exception as e:
-                print(f"Error getting opportunities from ChatGPT: {e}")
-                return None
-
-        max_retries = 3
-        all_valid_opps = []
-        seen_links = set()
-        for attempt in range(max_retries):
-            opportunities_text = get_opportunities_from_chatgpt_with_keyword(search_city, keyword, include_types)
-            if opportunities_text:
-                parsed_opportunities = extract_opportunity_info(opportunities_text)
-                for opp in parsed_opportunities:
-                    link = opp.get('apply_link')
-                    if link and is_valid_url(link):
-                        # Only add unique links
-                        normalized_link = link.lower().strip()
-                        if normalized_link not in seen_links:
-                            all_valid_opps.append(opp)
-                            seen_links.add(normalized_link)
-            if len(all_valid_opps) >= 5:
-                break
-        if all_valid_opps:
-            connection = sqlite3.connect("opportunities.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            inserted_count = 0
-            for opp in all_valid_opps:
-                if insert_opportunity_safely(crsr, opp):
-                    inserted_count += 1
-            connection.commit()
-            print(f"Inserted {inserted_count} new opportunities for {search_city} with keyword '{keyword}' (after retries)")
-            connection.close()
-    
-    # --- End ChatGPT fallback (commented out for demo) ---
-
-    # After inserting, always fetch and display all matching results
-    connection = sqlite3.connect("opportunities.db")
-    connection.row_factory = sqlite3.Row
-    crsr = connection.cursor()
-    query = "SELECT * FROM opportunities WHERE 1=1"
-    params = []
-    if search_city:
-        query += " AND LOWER(city) LIKE ?"
-        params.append(f"%{search_city.lower()}%")
-    if all_keywords:
-        keyword_clauses = []
-        keyword_params = []
-        for kw in all_keywords:
-            if kw:
-                keyword_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)")
-                keyword_params.extend([f"%{kw.lower()}%"] * 4)
-        if keyword_clauses:
-            query += " AND (" + " OR ".join(keyword_clauses) + ")"
-            params.extend(keyword_params)
-    query += " ORDER BY created_at DESC"
-    print("QUERY:", query)
-    print("PARAMS:", params)
-    crsr.execute(query, params)
-    opportunities = [dict(row) for row in crsr.fetchall()]
-    connection.close()
-
-    return render_template("opportunities.html", opportunities=opportunities)
+    randomized = not used_skills
+    return render_template("opportunities.html", opportunities=opportunities, randomized=randomized)
 
 @app.route("/fetch_opportunities_background", methods=["POST"])
 def fetch_opportunities_background():
@@ -630,7 +556,8 @@ def init_db():
             city TEXT,
             state TEXT,
             saved_opportunities TEXT DEFAULT '[]',
-            is_admin INTEGER DEFAULT 0
+            is_admin INTEGER DEFAULT 0,
+            skills TEXT DEFAULT ''
         )
     """)
     user_connection.commit()
@@ -891,7 +818,7 @@ def profile():
     if not user:
         user_connection.close()
         return redirect("/auth/login")
-    # Handle info/resume update
+    # Handle info/resume/skills update
     if request.method == "POST":
         # Info update
         name = request.form.get("name", user["name"])
@@ -900,6 +827,7 @@ def profile():
         state = request.form.get("state", user["state"])
         birthday = request.form.get("birthday", user["birthday"] if "birthday" in user.keys() else None)
         password = request.form.get("password", None)
+        skills = request.form.get("skills", user["skills"] if "skills" in user.keys() else "")
         update_fields = []
         update_values = []
         if name != user["name"]:
@@ -924,7 +852,10 @@ def profile():
             else:
                 update_fields.append("password = ?")
                 update_values.append(password)
-        # Resume upload
+        if skills != (user["skills"] if "skills" in user.keys() else ""):
+            update_fields.append("skills = ?")
+            update_values.append(skills)
+        # Resume upload and skill extraction
         if "resume" in request.files:
             file = request.files["resume"]
             if file and file.filename.lower().endswith(".pdf"):
@@ -932,6 +863,32 @@ def profile():
                 if resume_data:
                     update_fields.append("resume = ?")
                     update_values.append(resume_data)
+                    # Extract skills from resume using LLM
+                    try:
+                        import pdfplumber
+                        import openai
+                        import io
+                        file_stream = io.BytesIO(resume_data)
+                        with pdfplumber.open(file_stream) as pdf:
+                            text = ''.join(page.extract_text() or '' for page in pdf.pages)
+                        if text:
+                            prompt = f"""
+Given the following resume text, extract a concise, comma-separated list of the most relevant skills, areas of expertise, and interests for matching to volunteer opportunities. Only output the list, no extra text.
+
+Resume:
+{text}
+"""
+                            response = openai.ChatCompletion.create(
+                                model="gpt-3.5-turbo",
+                                messages=[{"role": "user", "content": prompt}]
+                            )
+                            skills_str = response["choices"][0]["message"]["content"].strip()
+                            if skills_str:
+                                update_fields.append("skills = ?")
+                                update_values.append(skills_str)
+                                skills = skills_str
+                    except Exception as e:
+                        print(f"Failed to extract skills from resume: {e}")
             elif file and file.filename:
                 message = "Only PDF files are allowed."
         if update_fields and (not message or message == "Profile updated successfully."):
@@ -1068,3 +1025,15 @@ except Exception as e:
 if autoRun:
     if __name__ == '__main__':
         app.run(debug=True, port=port)
+
+# --- PATCH: Helper to get user skills as list ---
+def get_user_skills(user):
+    # Accepts either a dict or sqlite3.Row
+    if isinstance(user, dict):
+        skills_str = user.get("skills", "")
+    else:
+        # sqlite3.Row supports key access
+        skills_str = user["skills"] if "skills" in user.keys() else ""
+    if not skills_str:
+        return []
+    return [s.strip().lower() for s in skills_str.split(",") if s.strip()]
