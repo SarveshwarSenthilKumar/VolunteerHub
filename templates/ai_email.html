@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}AI Email Generator - VolunteerHub{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ai-email-container {
+        display: flex;
+        flex-direction: row;
+        width: 100vw;
+        min-height: 80vh;
+        max-width: 1200px;
+        margin: 2rem auto;
+    }
+    .email-display {
+        flex: 7;
+        background: var(--bg-secondary);
+        border-radius: 1.5rem 0 0 1.5rem;
+        padding: 2.5rem 2rem;
+        min-height: 500px;
+        box-shadow: 0 8px 32px rgba(59,130,246,0.10);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    .email-loading {
+        display:none;
+        text-align:center;
+        margin:2rem 0;
+    }
+    .spinner {
+        margin:0 auto 1rem auto;
+        width:48px;
+        height:48px;
+        border:5px solid #3b82f6;
+        border-top:5px solid #23272a;
+        border-radius:50%;
+        animation:spin 1s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+    .email-content {
+        display:none;
+        background:rgba(24,26,27,0.98);
+        border-radius:1rem;
+        padding:1.2rem 1rem;
+        color:#e0e0e0;
+        font-size:1.08em;
+        line-height:1.7;
+        white-space:pre-line;
+        box-shadow:0 2px 8px rgba(59,130,246,0.07);
+        margin-bottom:1.2rem;
+        max-width:600px;
+        width:100%;
+    }
+    .copy-email-btn {
+        display:none;
+        background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);
+        color:#fff;
+        border:none;
+        border-radius:1rem;
+        padding:0.7rem 1.5rem;
+        font-size:1em;
+        font-weight:600;
+        cursor:pointer;
+        transition:background 0.2s,box-shadow 0.2s;
+        align-self:center;
+        box-shadow:0 2px 8px #06b6d4a0;
+    }
+    .email-error {
+        display:none;
+        color:#f87171;
+        text-align:center;
+        margin-top:1.2rem;
+        font-weight:600;
+    }
+    .email-placeholder {
+        color:#bfc9d1;
+        text-align:center;
+        font-size:1.1em;
+    }
+    .saved-list {
+        flex: 3;
+        background: var(--bg-primary);
+        border-radius: 0 1.5rem 1.5rem 0;
+        padding: 2.5rem 1.5rem;
+        min-width: 260px;
+        box-shadow: 0 8px 32px rgba(59,130,246,0.07);
+        overflow-y: auto;
+    }
+    .saved-list h2 {
+        color:#3b82f6;
+        font-size:1.2rem;
+        font-weight:700;
+        margin-bottom:1.2rem;
+        text-align:left;
+    }
+    .saved-list ul {
+        list-style:none;
+        padding:0;
+        margin:0;
+    }
+    .saved-list li {
+        margin-bottom:1.2rem;
+    }
+    .saved-list button {
+        width:100%;
+        background:var(--bg-secondary);
+        color:var(--text-primary);
+        border:none;
+        border-radius:1rem;
+        padding:1.1em 1em;
+        text-align:left;
+        box-shadow:0 2px 8px #3b82f6a0;
+        cursor:pointer;
+        font-size:1.05em;
+        transition:background 0.2s;
+    }
+    .saved-list button:hover {
+        background:var(--accent-primary);
+        color:#fff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ai-email-container">
+    <div class="email-display">
+        <div class="email-loading" id="email-loading">
+            <div class="spinner"></div>
+            <div style="color:#bfc9d1;font-size:1.1em;">Generating your personalized, human-sounding email...</div>
+        </div>
+        <div class="email-content" id="email-content"></div>
+        <button class="copy-email-btn" id="copy-email-btn">Copy Email</button>
+        <div class="email-error" id="email-error"></div>
+        <div class="email-placeholder" id="email-placeholder">Select a saved opportunity to generate an email.</div>
+    </div>
+    <div class="saved-list">
+        <h2>Your Saved Opportunities</h2>
+        {% if opportunities %}
+            <ul>
+            {% for opportunity in opportunities %}
+                <li>
+                    <button type="button" onclick="generateEmailForOpportunity(JSON.parse(this.getAttribute('data-opportunity')))" data-opportunity='{{ opportunity|tojson|safe }}'>
+                        <div style="font-weight:700;font-size:1.08em;">{{ opportunity.title }}</div>
+                        <div style="color:#3b82f6;font-weight:600;">{{ opportunity.organization_name }}</div>
+                        <div style="color:#bfc9d1;font-size:0.98em;">{{ opportunity.city }}, {{ opportunity.location }}</div>
+                    </button>
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <div style="color:#bfc9d1;text-align:center;">No saved opportunities found.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let lastEmailText = '';
+let lastContact = '';
+function generateEmailForOpportunity(opportunity) {
+    const content = document.getElementById('email-content');
+    const loading = document.getElementById('email-loading');
+    const copyBtn = document.getElementById('copy-email-btn');
+    const errorDiv = document.getElementById('email-error');
+    const placeholder = document.getElementById('email-placeholder');
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    copyBtn.style.display = 'none';
+    errorDiv.style.display = 'none';
+    placeholder.style.display = 'none';
+    fetch('/generate-ai-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opportunity: opportunity })
+    })
+    .then(res => res.json())
+    .then(data => {
+        loading.style.display = 'none';
+        if (data && data.email) {
+            content.textContent = data.email;
+            content.style.display = 'block';
+            copyBtn.style.display = 'inline-block';
+            copyBtn.textContent = 'Copy Email';
+            copyBtn.onclick = function() {
+                navigator.clipboard.writeText(data.email);
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => { copyBtn.textContent = 'Copy Email'; }, 1500);
+            };
+        } else {
+            content.style.display = 'none';
+            copyBtn.style.display = 'none';
+            errorDiv.textContent = data.error || 'Failed to generate email.';
+            errorDiv.style.display = 'block';
+        }
+    })
+    .catch(() => {
+        loading.style.display = 'none';
+        content.style.display = 'none';
+        copyBtn.style.display = 'none';
+        errorDiv.textContent = 'Failed to generate email.';
+        errorDiv.style.display = 'block';
+    });
+}
+</script>
+{% endblock %}
+<!-- End of ai_email.html --> 

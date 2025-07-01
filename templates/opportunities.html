@@ -451,6 +451,12 @@
                         </a>
                         {% endif %}
                     </div>
+                    <button class="button button-secondary ai-email-btn futuristic-email-btn" style="margin:0.5rem 0 1rem 0;box-shadow:0 2px 12px #3b82f6a0,0 0 0 2px #06b6d4a0;letter-spacing:0.03em;font-size:1.08em;transition:box-shadow 0.2s;" onclick="console.log('AI Email button clicked', {{ opportunity|tojson }}); window.openEmailModal({{ opportunity|tojson }})">
+                        <span style="display:inline-flex;align-items:center;gap:0.5em;">
+                            <svg width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.2em;"><rect x="2" y="5" width="18" height="12" rx="3"/><path d="M2 7l9 6 9-6"/></svg>
+                            Generate AI Email
+                        </span>
+                    </button>
                     <button class="flip-btn" type="button" style="margin-top: 1.5rem;">&larr; Back</button>
                 </div>
             </div>
@@ -464,6 +470,21 @@
         <a href="/opportunities" class="button button-primary">Clear Filters</a>
     </div>
 {% endif %}
+
+<!-- AI Email Modal -->
+<div id="ai-email-modal" style="display:none;position:fixed;z-index:10000;top:0;left:0;width:100vw;height:100vh;background:rgba(24,26,27,0.92);backdrop-filter:blur(2px);align-items:center;justify-content:center;">
+    <div id="ai-email-modal-content" style="background:linear-gradient(135deg,#23272a 60%,#0ea5e9 100%);border-radius:1.5rem;max-width:540px;width:90vw;padding:2.5rem 2rem;box-shadow:0 8px 32px rgba(59,130,246,0.18);position:relative;display:flex;flex-direction:column;align-items:stretch;overflow:hidden;">
+        <button onclick="window.closeEmailModal()" style="position:absolute;top:1.2rem;right:1.5rem;background:none;border:none;font-size:1.5rem;color:#fff;cursor:pointer;">&times;</button>
+        <h2 style="color:#3b82f6;font-size:1.4rem;font-weight:700;margin-bottom:1.2rem;text-align:center;letter-spacing:0.02em;">AI-Generated Email</h2>
+        <div id="ai-email-loading" style="display:none;text-align:center;margin:2rem 0;">
+            <div class="spinner" style="margin:0 auto 1rem auto;width:48px;height:48px;border:5px solid #3b82f6;border-top:5px solid #23272a;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            <div style="color:#bfc9d1;font-size:1.1em;">Generating your personalized, human-sounding email...</div>
+        </div>
+        <div id="ai-email-content" style="display:none;background:rgba(24,26,27,0.98);border-radius:1rem;padding:1.2rem 1rem;color:#e0e0e0;font-size:1.08em;line-height:1.7;white-space:pre-line;box-shadow:0 2px 8px rgba(59,130,246,0.07);margin-bottom:1.2rem;"></div>
+        <button id="copy-email-btn" style="display:none;background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;border:none;border-radius:1rem;padding:0.7rem 1.5rem;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s,box-shadow 0.2s;align-self:center;box-shadow:0 2px 8px #06b6d4a0;">Copy Email</button>
+        <div id="ai-email-error" style="display:none;color:#f87171;text-align:center;margin-top:1.2rem;font-weight:600;"></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -510,6 +531,70 @@
             });
         }
     });
+
+    function openEmailModal(opportunity) {
+        console.log('openEmailModal called', opportunity);
+        const modal = document.getElementById('ai-email-modal');
+        const content = document.getElementById('ai-email-content');
+        const loading = document.getElementById('ai-email-loading');
+        const copyBtn = document.getElementById('copy-email-btn');
+        const errorDiv = document.getElementById('ai-email-error');
+        modal.style.display = 'flex';
+        content.style.display = 'none';
+        copyBtn.style.display = 'none';
+        errorDiv.style.display = 'none';
+        loading.style.display = 'block';
+        // Fetch AI email
+        fetch('/generate-ai-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ opportunity: opportunity })
+        })
+        .then(res => res.json())
+        .then(data => {
+            loading.style.display = 'none';
+            if (data && data.subject) {
+                // Professional email layout
+                content.innerHTML = `
+                    <div style="margin-bottom:0.7em;color:#3b82f6;font-weight:700;font-size:1.08em;">Subject: <span style="color:#fff;">${data.subject}</span></div>
+                    <div style="margin-bottom:0.7em;color:#06b6d4;font-weight:600;">${data.greeting}</div>
+                    <div style="margin-bottom:0.7em;">${data.body.replace(/\n/g,'<br>')}</div>
+                    <div style="margin-top:1.2em;color:#bfc9d1;font-style:italic;">${data.closing}</div>
+                `;
+                content.style.display = 'block';
+                copyBtn.style.display = 'inline-block';
+                copyBtn.textContent = 'Copy Email';
+                copyBtn.onclick = function() {
+                    // Copy all email fields as a single email
+                    const emailText = `Subject: ${data.subject}\n${data.greeting}\n${data.body}\n${data.closing}`;
+                    navigator.clipboard.writeText(emailText);
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.style.background = 'linear-gradient(90deg,#06d6a0 0%,#3b82f6 100%)';
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Email';
+                        copyBtn.style.background = 'linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%)';
+                    }, 1500);
+                };
+            } else {
+                content.style.display = 'none';
+                copyBtn.style.display = 'none';
+                errorDiv.textContent = data.error || 'Failed to generate email.';
+                errorDiv.style.display = 'block';
+            }
+        })
+        .catch(() => {
+            loading.style.display = 'none';
+            content.style.display = 'none';
+            copyBtn.style.display = 'none';
+            errorDiv.textContent = 'Failed to generate email.';
+            errorDiv.style.display = 'block';
+        });
+    }
+    function closeEmailModal() {
+        document.getElementById('ai-email-modal').style.display = 'none';
+    }
+    window.openEmailModal = openEmailModal;
+    window.closeEmailModal = closeEmailModal;
 </script>
 {% endblock %}
 

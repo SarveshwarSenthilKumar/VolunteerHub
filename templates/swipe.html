@@ -175,11 +175,7 @@
         {{ error_message }}
     </div>
     {% endif %}
-    {% if rare_message %}
-    <div class="rare-message" style="background:#23272a;color:#fbbf24;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;font-weight:700;">
-        {{ rare_message }}
-    </div>
-    {% elif randomized %}
+    {% if randomized %}
     <div class="randomized-message" style="background:#23272a;color:#fbbf24;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;">
         Opportunities are shown in random order. Add your skills/interests in your <a href="/profile" style="color:#3b82f6;text-decoration:underline;">profile</a> for personalized matches!
     </div>
@@ -214,7 +210,6 @@
                     {% if opportunity.apply_link %}
                     <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank" style="margin: 1rem 0;">Apply Now</a>
                     {% endif %}
-                    <button class="button button-secondary ai-email-btn" style="margin:0.5rem 0 1rem 0;" onclick="openEmailModal({{ opportunity|tojson }})">Generate AI Email</button>
                     <div class="action-buttons">
                         <button class="action-button dislike" onclick="handleAction('dislike', {{ loop.index0 }})">✕</button>
                         <button class="action-button flip" onclick="flipCard({{ loop.index0 }})">🔄</button>

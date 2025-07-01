@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, jsonify, send_file
+from flask import Flask, render_template, request, redirect, session, jsonify, send_file, url_for
 from flask_session import Session
 from datetime import datetime, timedelta
 import pytz
@@ -58,7 +58,7 @@ def get_opportunities_from_chatgpt(city, custom_prompt=None):
     if custom_prompt:
         prompt = custom_prompt
     else:
-        prompt = f"""Generate 5 volunteer opportunities in {city}. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
+        prompt = f"""Generate 5 volunteer opportunities in {city}. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply). Make sure these opportunities are real and currently available."""
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -352,7 +352,6 @@ def all_opportunities():
     """
     base_params = [user["id"], f"%{user['city']}%"]
     skill_fields = ["title", "description", "organization_name", "location"]
-    # Determine if this is an event-only search
     event_only_mode = False
     if include_types and (not keyword or all(w in include_types for w in extract_event_types_from_text(keyword))):
         event_only_mode = True
@@ -377,60 +376,43 @@ def all_opportunities():
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
         opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, debug_label="all-opportunities")
     connection.close()
-    # If still empty, use ChatGPT to generate events (not just volunteer opps) for event types
-    if event_only_mode and not opportunities and include_types:
-        keyword_part = f". Every event must be directly about '{keyword}' and the keyword must appear as a whole word in the event's title or description." if keyword else ""
-        chatgpt_prompt = f"Generate 5 real or plausible events (not just volunteer opportunities) in {user['city']} for the following types: {', '.join(include_types)}{keyword_part} For each event, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nState: [State]\nLocation: [Location]\nDuration: [Duration]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each event with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."
-        opportunities_text = get_opportunities_from_chatgpt(user["city"], custom_prompt=chatgpt_prompt)
-        if opportunities_text:
-            parsed_opportunities = extract_opportunity_info(opportunities_text, user.get("state"))
-            if keyword:
-                import re
-                keyword_lc = keyword.lower()
-                before_count = len(parsed_opportunities)
-                def keyword_in_text(text):
-                    return bool(re.search(rf"\\b{re.escape(keyword_lc)}\\b", text.lower()))
-                parsed_opportunities = [opp for opp in parsed_opportunities if keyword_in_text(opp.get('title', '')) or keyword_in_text(opp.get('description', ''))]
-                print(f"[DEBUG][all-opportunities] {before_count} events generated, {len(parsed_opportunities)} passed WHOLE WORD keyword filter in title/description.")
-            connection = sqlite3.connect("opportunities.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            inserted_count = 0
-            for opp in parsed_opportunities:
-                if insert_opportunity_safely(crsr, opp):
-                    inserted_count += 1
-            connection.commit()
-            connection.close()
-            print(f"Inserted {inserted_count} new events for {user['city']} (event_only_mode fallback, keyword filtered)")
-            # Try again with event-only query
-            connection = sqlite3.connect("opportunities.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            base_query2 = """
-                SELECT o.* FROM opportunities o
-                LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-                WHERE o.city LIKE ?
-            """
-            base_params2 = [user["id"], f"%{user['city']}%"]
-            event_clauses = []
-            event_params = []
-            for etype in include_types:
-                for alias in EVENT_TYPE_ALIASES[etype]:
-                    event_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
-                    event_params.extend([f"%{alias}%"] * len(skill_fields))
-            if event_clauses:
-                base_query2 += " AND (" + " OR ".join(event_clauses) + ")"
-                base_params2.extend(event_params)
-            if keyword:
-                base_query2 += " AND (" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")"
-                base_params2.extend([f"%{keyword.lower()}%"] * len(skill_fields))
-            crsr.execute(base_query2, base_params2)
-            opportunities = [dict(row) for row in crsr.fetchall()]
-            connection.close()
-            randomized = False
-            # If still no results, show a user-friendly message
-            if not opportunities:
-                return render_template("all_opportunities.html", opportunities=[], randomized=False, rare_message=None, event_only_mode=event_only_mode, error_message="No events found for your search. Try a different keyword or event type.")
+    # If no opportunities found and keyword is non-empty, use ChatGPT to generate plausible opportunities
+    if not opportunities and keyword:
+        import openai, os
+        openai.api_key = os.getenv('OPENAI_API_KEY')
+        chatgpt_prompt = f"""
+Generate 5 real or plausible volunteer opportunities in {user['city']} for the keyword: '{keyword}'. For each opportunity, provide the following information in this exact format:
+
+Organization Name: [Name]
+Title: [Title]
+Description: [Description]
+City: [City]
+State: [State]
+Location: [Location]
+Duration: [Duration]
+Contact Info: [Contact Info]
+Apply Link: [Apply Link]
+
+Separate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": chatgpt_prompt}],
+            max_tokens=900,
+            temperature=0.8
+        )
+        text = response['choices'][0]['message']['content']
+        parsed_opportunities = extract_opportunity_info(text, user.get("state"))
+        # Insert generated opportunities into the database
+        connection = sqlite3.connect("opportunities.db")
+        connection.row_factory = sqlite3.Row
+        crsr = connection.cursor()
+        for opp in parsed_opportunities:
+            insert_opportunity_safely(crsr, opp)
+        connection.commit()
+        # Query again for the user
+        crsr.execute(base_query, base_params)
+        opportunities = [dict(row) for row in crsr.fetchall()]
+        connection.close()
     rare_message = None
     if not event_only_mode and fallback_label == "random":
         rare_message = "That's quite a specialty, a rare one!"
@@ -592,7 +574,9 @@ def fetch_opportunities_background():
         return jsonify({"error": "No city found for user"}), 400
 
     # Get keyword from request (if present)
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not data:
+        data = {}
     keyword = data.get("keyword", None)
 
     # Fetch new opportunities from ChatGPT
@@ -1212,68 +1196,88 @@ Only include real opportunities with working links. Separate each opportunity wi
 
 @app.route('/generate-ai-email', methods=['POST'])
 def generate_ai_email():
-    if not session.get('name'):
-        return jsonify({'error': 'Not logged in'}), 401
-    data = request.get_json()
-    opportunity = data.get('opportunity')
-    if not opportunity:
-        return jsonify({'error': 'No opportunity provided'}), 400
-    # Get user info
-    user_connection = sqlite3.connect('users.db')
+    try:
+        data = request.get_json()
+        opportunity = data.get('opportunity', {})
+        user_name = session.get('name', None)
+        user_real_name = None
+        user_skills = None
+        if user_name:
+            user_connection = sqlite3.connect('users.db')
+            user_connection.row_factory = sqlite3.Row
+            user_crsr = user_connection.cursor()
+            user_crsr.execute('SELECT name, skills FROM users WHERE username = ?', (user_name,))
+            user_row = user_crsr.fetchone()
+            user_connection.close()
+            if user_row:
+                if user_row['name']:
+                    user_real_name = user_row['name']
+                if user_row['skills']:
+                    user_skills = user_row['skills']
+        signature = user_real_name or user_name or 'VolunteerHub User'
+        skills_text = f"\nRelevant skills/experiences: {user_skills}" if user_skills else ""
+        prompt = f"""
+You are an assistant helping a volunteer write a professional, friendly, and human-sounding email to express interest in a volunteer opportunity.
+
+Here is the opportunity information:
+Title: {opportunity.get('title', '')}
+Organization: {opportunity.get('organization_name', '')}
+Description: {opportunity.get('description', '')}
+Location: {opportunity.get('city', '')}, {opportunity.get('location', '')}
+{skills_text}
+
+Write a complete, detailed, and persuasive email with:
+- A greeting (e.g., Dear [Organization] or Hello)
+- A body expressing genuine interest, mentioning relevant skills/enthusiasm, and asking about next steps
+- A polite closing and a single, professional signature using this name: {signature}
+- Do NOT use any placeholders, brackets, or boilerplate like [Your Name] or [Organization]—fill in all information fully and naturally.
+- Make the email more detailed, authentic, and persuasive than a generic template.
+- Do NOT include any section labels like 'Body:', 'Closing:', or 'Signature:' in the output. Just write the email as it would be sent.
+"""
+        import openai, os
+        openai.api_key = os.getenv('OPENAI_API_KEY')
+        print(f"[DEBUG] OPENAI_API_KEY: {str(openai.api_key)[:8]}{'*' * (len(str(openai.api_key))-8) if openai.api_key else 'None'}")
+        print(f"[DEBUG] Prompt for AI email:\n{prompt}")
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": prompt}],
+            max_tokens=400,
+            temperature=0.85
+        )
+        print(f"[DEBUG] OpenAI response: {response}")
+        text = response['choices'][0]['message']['content']
+        print(f"[DEBUG] Returning JSON: {{'email': text}}")
+        return jsonify({'email': text})
+    except Exception as e:
+        print(f"[ERROR] Failed to generate AI email: {e}")
+        print(f"[ERROR] Returning JSON: {{'error': 'Failed to generate email: {str(e)}'}}")
+        return jsonify({'error': f'Failed to generate email: {str(e)}'}), 500
+
+@app.route('/ai-email')
+def ai_email():
+    if not session.get("name"):
+        return redirect("/auth/login")
+    # Get user id
+    user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    user_crsr.execute('SELECT name, emailAddress, city, state, skills FROM users WHERE username = ?', (session['name'],))
+    user_crsr.execute("SELECT id, saved_opportunities FROM users WHERE username = ?", (session["name"],))
     user = user_crsr.fetchone()
     user_connection.close()
     if not user:
-        return jsonify({'error': 'User not found'}), 404
-    user_name = user['name'] or session['name']
-    user_email = user['emailAddress']
-    user_city = user['city']
-    user_state = user['state']
-    user_skills = user['skills'] or ''
-    # Compose prompt
-    system_prompt = (
-        "You are an expert assistant that writes professional, warm, and human-sounding emails for volunteers. "
-        "If the user or opportunity contains inappropriate, offensive, or unsafe content, refuse to generate an email. "
-        "Make the email sound genuinely human, friendly, and enthusiastic, and tailor it to the opportunity and the user's skills and interests if relevant. "
-        "Do not include any inappropriate or unsafe content."
-    )
-    user_prompt = f"""
-Write a professional, friendly, and human-sounding email for a volunteer to send to the following opportunity. The email should be personalized to the opportunity and the user's background, skills, and interests if relevant. Make it sound warm, enthusiastic, and authentic. Do not include any inappropriate or unsafe content.
-
-User Name: {user_name}
-User Email: {user_email}
-User City: {user_city}
-User State: {user_state}
-User Skills/Interests: {user_skills}
-
-Opportunity Details:
-Organization Name: {opportunity.get('organization_name', '')}
-Title: {opportunity.get('title', '')}
-Description: {opportunity.get('description', '')}
-City: {opportunity.get('city', '')}
-State: {opportunity.get('state', '')}
-Location: {opportunity.get('location', '')}
-Duration: {opportunity.get('duration', '')}
-Volunteers Needed: {opportunity.get('volunteers_needed', '')}
-Contact Info: {opportunity.get('contact_info', '')}
-Apply Link: {opportunity.get('apply_link', '')}
-
-The email should be ready to send, with a subject line and a professional closing.
-"""
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
-        )
-        email_text = response["choices"][0]["message"]["content"].strip()
-        return jsonify({'email': email_text})
-    except Exception as e:
-        return jsonify({'error': f'Failed to generate email: {e}'})
+        return redirect("/auth/login")
+    # Get saved opportunities
+    saved_opportunities = json.loads(user["saved_opportunities"])
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    if saved_opportunities:
+        crsr.execute("SELECT * FROM opportunities WHERE id IN ({})".format(",".join(["?"]*len(saved_opportunities))), saved_opportunities)
+        opportunities = [dict(row) for row in crsr.fetchall()]
+    else:
+        opportunities = []
+    connection.close()
+    return render_template("ai_email.html", opportunities=opportunities)
 
 # Initialize database tables if they don't exist
 init_db()
