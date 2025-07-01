@@ -48,7 +48,6 @@ def create_opportunities_database():
     connection.commit()
     crsr.close()
     connection.close()
-    print("Opportunities database created successfully!")
 
 def create_users_database():
     # Create users database
@@ -79,7 +78,6 @@ def create_users_database():
     connection.commit()
     crsr.close()
     connection.close()
-    print("Users database created successfully!")
 
 if __name__ == "__main__":
     create_users_database()

@@ -77,10 +77,6 @@ def signup():
                 current_time, '[]'
             )
             
-            print("\n=== Executing Insert Query ===")
-            print(f"Query: {insert_query}")
-            print(f"Values: {insert_values}")
-            
             crsr.execute(insert_query, insert_values)
             connection.commit()
             
@@ -96,12 +92,10 @@ def signup():
                 connection.close()
                 return redirect('/')
             else:
-                print("\n=== Error: User not found after creation ===")
                 connection.close()
                 return render_template('auth/signup.html', error='Error creating user: User not found after creation')
             
         except Exception as e:
-            print(f"\n=== Error Creating User: {str(e)} ===")
             if 'connection' in locals():
                 connection.close()
             return render_template('auth/signup.html', error=f'Error creating user: {str(e)}')

@@ -69,7 +69,6 @@ def get_opportunities_from_chatgpt(city, custom_prompt=None):
         )
         return response["choices"][0]["message"]["content"]
     except Exception as e:
-        print(f"Error getting opportunities from ChatGPT: {e}")
         return None
 
 def extract_opportunity_info(text, user_state=None):
@@ -116,11 +115,8 @@ def check_inappropriate_openai(text):
     try:
         result = openai.Moderation.create(input=text)
         flagged = result['results'][0]['flagged']
-        if flagged:
-            print(f"[OPENAI MODERATION] Blocked input: {text}")
         return flagged
     except Exception as e:
-        print(f"[OPENAI MODERATION] Error: {e}")
         return False
 
 def filter_generic_skills(skills):
@@ -150,10 +146,8 @@ def get_best_opportunities_with_label(crsr, user_id, city, skills, base_query, b
             query += " AND (" + " OR ".join(skill_clauses) + ")"
             params.extend(skill_params)
         query += " ORDER BY RANDOM()"
-        print(f"[DEBUG][{debug_label}] Querying with skills ({label}): {skills_try}")
         crsr.execute(query, params)
         results = [dict(row) for row in crsr.fetchall()]
-        print(f"[DEBUG][{debug_label}] Found {len(results)} opportunities with skills ({label})")
         results = [opp for opp in results if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
         if len(results) >= min_results:
             return results, (label == "random"), label
@@ -201,7 +195,6 @@ def swipe():
                     inserted_count += 1
             connection.commit()
             connection.close()
-            print(f"Inserted {inserted_count} new opportunities for {user['city']} (skills fallback)")
             # Try again with fallback logic
             connection = sqlite3.connect("opportunities.db")
             connection.row_factory = sqlite3.Row
@@ -340,7 +333,6 @@ def all_opportunities():
     flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
     flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
     if flagged_skills or flagged_keywords:
-        print(f"[INAPPROPRIATE] Blocked skills: {flagged_skills}, keywords: {flagged_keywords}")
         return render_template("all_opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.")
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
@@ -355,7 +347,6 @@ def all_opportunities():
     event_only_mode = False
     if include_types and (not keyword or all(w in include_types for w in extract_event_types_from_text(keyword))):
         event_only_mode = True
-    print(f"[DEBUG][all-opportunities] Event types included: {include_types}, event_only_mode: {event_only_mode}")
     if event_only_mode:
         event_clauses = []
         event_params = []
@@ -366,20 +357,14 @@ def all_opportunities():
         if event_clauses:
             base_query += " AND (" + " OR ".join(event_clauses) + ")"
             base_params.extend(event_params)
-        print(f"[DEBUG][all-opportunities] Event-only query: {base_query}, params: {base_params}")
         crsr.execute(base_query, base_params)
         opportunities = [dict(row) for row in crsr.fetchall()]
-        print(f"[DEBUG][all-opportunities] Found {len(opportunities)} events (event_only_mode)")
-        randomized = False
-        fallback_label = None
     else:
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
         opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, debug_label="all-opportunities")
     connection.close()
     # If no opportunities found and keyword is non-empty, use ChatGPT to generate plausible opportunities
     if not opportunities and keyword:
-        import openai, os
-        openai.api_key = os.getenv('OPENAI_API_KEY')
         chatgpt_prompt = f"""
 Generate 5 real or plausible volunteer opportunities in {user['city']} for the keyword: '{keyword}'. For each opportunity, provide the following information in this exact format:
 
@@ -462,7 +447,6 @@ def search_opportunities():
     flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
     flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
     if flagged_skills or flagged_keywords:
-        print(f"[INAPPROPRIATE] Blocked skills: {flagged_skills}, keywords: {flagged_keywords}")
         return render_template("opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.")
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
@@ -477,8 +461,6 @@ def search_opportunities():
     event_only_mode = False
     if include_types and (not keyword or all(w in include_types for w in extract_event_types_from_text(keyword))):
         event_only_mode = True
-    print(f"[DEBUG][opportunities] Event types included: {include_types}, event_only_mode: {event_only_mode}")
-    # Build event-type-only query if in event_only_mode
     if event_only_mode:
         event_clauses = []
         event_params = []
@@ -489,12 +471,8 @@ def search_opportunities():
         if event_clauses:
             base_query += " AND (" + " OR ".join(event_clauses) + ")"
             base_params.extend(event_params)
-        print(f"[DEBUG][opportunities] Event-only query: {base_query}, params: {base_params}")
         crsr.execute(base_query, base_params)
         opportunities = [dict(row) for row in crsr.fetchall()]
-        print(f"[DEBUG][opportunities] Found {len(opportunities)} events (event_only_mode)")
-        randomized = False
-        fallback_label = None
     else:
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
         opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, base_query, base_params, skill_fields, debug_label="opportunities")
@@ -507,13 +485,11 @@ def search_opportunities():
         if opportunities_text:
             parsed_opportunities = extract_opportunity_info(opportunities_text, user.get("state"))
             if keyword:
-                import re
                 keyword_lc = keyword.lower()
                 before_count = len(parsed_opportunities)
                 def keyword_in_text(text):
                     return bool(re.search(rf"\\b{re.escape(keyword_lc)}\\b", text.lower()))
                 parsed_opportunities = [opp for opp in parsed_opportunities if keyword_in_text(opp.get('title', '')) or keyword_in_text(opp.get('description', ''))]
-                print(f"[DEBUG][opportunities] {before_count} events generated, {len(parsed_opportunities)} passed WHOLE WORD keyword filter in title/description.")
             connection = sqlite3.connect("opportunities.db")
             connection.row_factory = sqlite3.Row
             crsr = connection.cursor()
@@ -523,7 +499,6 @@ def search_opportunities():
                     inserted_count += 1
             connection.commit()
             connection.close()
-            print(f"Inserted {inserted_count} new events for {search_city} (event_only_mode fallback, keyword filtered)")
             # Try again with event-only query
             connection = sqlite3.connect("opportunities.db")
             connection.row_factory = sqlite3.Row
@@ -597,7 +572,6 @@ def fetch_opportunities_background():
                 inserted_count += 1
         connection.commit()
         connection.close()
-        print(f"Background: Inserted {inserted_count} new opportunities for {user['city']}")
         return jsonify({"success": True, "inserted_count": inserted_count})
     else:
         return jsonify({"success": False, "error": "Failed to fetch from ChatGPT"})
@@ -816,8 +790,6 @@ def cleanup_duplicates():
             ",".join("?" * len(duplicates_to_remove))
         ), duplicates_to_remove)
         connection.commit()
-        print(f"Removed {len(duplicates_to_remove)} duplicate opportunities")
-    
     connection.close()
     return len(duplicates_to_remove)
 
@@ -853,7 +825,7 @@ def geocode_address(address):
             if data:
                 return float(data[0]["lat"]), float(data[0]["lon"])
     except Exception as e:
-        print(f"Geocoding error for '{address}': {e}")
+        pass
     return None, None
 
 @app.route("/map", methods=["GET"])
@@ -916,7 +888,7 @@ def map_view():
                     loc = data["results"][0]["geometry"]["location"]
                     return float(loc["lat"]), float(loc["lng"])
         except Exception as e:
-            print(f"Google Maps geocoding error for '{address}': {e}")
+            pass
         return None, None
 
     map_opps = []
@@ -1040,9 +1012,6 @@ def profile():
                     update_values.append(resume_data)
                     # Extract skills from resume using LLM
                     try:
-                        import pdfplumber
-                        import openai
-                        import io
                         file_stream = io.BytesIO(resume_data)
                         with pdfplumber.open(file_stream) as pdf:
                             text = ''.join(page.extract_text() or '' for page in pdf.pages)
@@ -1063,7 +1032,7 @@ Resume:
                                 update_values.append(skills_str)
                                 skills = skills_str
                     except Exception as e:
-                        print(f"Failed to extract skills from resume: {e}")
+                        pass
             elif file and file.filename:
                 message = "Only PDF files are allowed."
         if update_fields and (not message or message == "Profile updated successfully."):
@@ -1234,23 +1203,15 @@ Write a complete, detailed, and persuasive email with:
 - Make the email more detailed, authentic, and persuasive than a generic template.
 - Do NOT include any section labels like 'Body:', 'Closing:', or 'Signature:' in the output. Just write the email as it would be sent.
 """
-        import openai, os
-        openai.api_key = os.getenv('OPENAI_API_KEY')
-        print(f"[DEBUG] OPENAI_API_KEY: {str(openai.api_key)[:8]}{'*' * (len(str(openai.api_key))-8) if openai.api_key else 'None'}")
-        print(f"[DEBUG] Prompt for AI email:\n{prompt}")
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": prompt}],
             max_tokens=400,
             temperature=0.85
         )
-        print(f"[DEBUG] OpenAI response: {response}")
         text = response['choices'][0]['message']['content']
-        print(f"[DEBUG] Returning JSON: {{'email': text}}")
         return jsonify({'email': text})
     except Exception as e:
-        print(f"[ERROR] Failed to generate AI email: {e}")
-        print(f"[ERROR] Returning JSON: {{'error': 'Failed to generate email: {str(e)}'}}")
         return jsonify({'error': f'Failed to generate email: {str(e)}'}), 500
 
 @app.route('/ai-email')
@@ -1286,7 +1247,7 @@ init_db()
 try:
     cleanup_duplicates()
 except Exception as e:
-    print(f"Error during duplicate cleanup: {e}")
+    pass
 
 if autoRun:
     if __name__ == '__main__':
