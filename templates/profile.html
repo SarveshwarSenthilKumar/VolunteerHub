@@ -179,18 +179,23 @@
                     <!-- Bubbles will be rendered here by JS -->
                     <input type="text" id="skills-input" placeholder="Type a skill and press comma..." style="border:none;outline:none;background:transparent;color:#fff;flex:1;min-width:120px;" autocomplete="off">
                 </div>
+                <div style="margin-top:0.5rem;text-align:right;">
+                    <button type="button" id="clear-skills-btn" style="background:#ef4444;color:#fff;border:none;border-radius:1rem;padding:0.4rem 1.2rem;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;">Clear All</button>
+                </div>
                 <input type="hidden" id="skills" name="skills" value="{{ user.skills or '' }}">
             </div>
-            <div class="resume-section">
-                <div class="resume-label">Resume (PDF only)</div>
+            <div class="resume-section" style="margin-top:2rem;background:#23272a;padding:1.5rem 1rem;border-radius:1rem;box-shadow:0 2px 8px rgba(59,130,246,0.07);display:flex;flex-direction:column;align-items:flex-start;gap:1rem;">
+                <label for="resume" style="font-weight:600;color:#bfc9d1;display:flex;align-items:center;gap:0.5rem;">
+                    <span style="font-size:1.3em;">📄</span> Resume (PDF only)
+                </label>
+                <div style="display:flex;align-items:center;gap:1rem;width:100%;">
+                    <input type="file" name="resume" id="resume" accept="application/pdf" style="display:none;">
+                    <button type="button" id="resume-upload-btn" style="background:#3b82f6;color:#fff;border:none;border-radius:0.75rem;padding:0.7rem 1.5rem;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;">Choose File</button>
+                    <span id="resume-file-name" style="color:#bfc9d1;font-size:0.98em;">No file chosen</span>
+                </div>
                 {% if has_resume %}
-                    <a href="/profile/resume" class="resume-link" target="_blank">View / Download Current Resume</a>
-                {% else %}
-                    <div style="color:#bfc9d1;">No resume uploaded yet.</div>
+                <a href="/profile/resume" class="button button-secondary" style="margin-top:0.5rem;">Download Current Resume</a>
                 {% endif %}
-            </div>
-            <div class="form-group">
-                <input type="file" name="resume" accept="application/pdf">
             </div>
             <button type="submit">Update Profile</button>
         </form>
@@ -216,13 +221,17 @@
     }
     </script>
     <script>
+    window.initialSkillsString = {{ user.skills|tojson }};
+    </script>
+    <script>
     // --- Dynamic Skills Bubble Input ---
-    (function() {
-        const initialSkills = ({{ user.skills|tojson }} || '').split(',').map(s => s.trim()).filter(Boolean);
+    document.addEventListener('DOMContentLoaded', function() {
+        const initialSkills = (window.initialSkillsString || '').split(',').map(s => s.trim()).filter(Boolean);
         let skills = [...initialSkills];
         const container = document.getElementById('skills-input-container');
         const input = document.getElementById('skills-input');
         const hidden = document.getElementById('skills');
+        const clearBtn = document.getElementById('clear-skills-btn');
 
         function render() {
             // Remove all bubbles except the input
@@ -277,9 +286,32 @@
         input.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') e.preventDefault();
         });
+        // Clear All button
+        clearBtn.onclick = function() {
+            skills = [];
+            render();
+            input.focus();
+        };
         // Initial render
         render();
-    })();
+    });
+    </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var resumeInput = document.getElementById('resume');
+        var uploadBtn = document.getElementById('resume-upload-btn');
+        var fileNameSpan = document.getElementById('resume-file-name');
+        if (uploadBtn && resumeInput && fileNameSpan) {
+            uploadBtn.onclick = function() { resumeInput.click(); };
+            resumeInput.onchange = function() {
+                if (resumeInput.files && resumeInput.files.length > 0) {
+                    fileNameSpan.textContent = resumeInput.files[0].name;
+                } else {
+                    fileNameSpan.textContent = 'No file chosen';
+                }
+            };
+        }
+    });
     </script>
 </body>
 </html> 
