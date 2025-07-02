@@ -184,13 +184,13 @@
 </section>
 
 {% if session.get('name') %}
-    <div style="text-align:center; margin-top:2.5rem;">
-        <a href="/profile" style="display:inline-block;padding:1rem 2.5rem;font-size:1.2rem;font-weight:700;border-radius:2rem;background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;text-decoration:none;box-shadow:0 4px 16px rgba(59,130,246,0.13);transition:background 0.2s;">Go to Your Profile</a>
-        <a href="/resume-match" style="display:inline-block;margin-left:1rem;padding:1rem 2.5rem;font-size:1.2rem;font-weight:700;border-radius:2rem;background:linear-gradient(90deg,#06b6d4 0%,#3b82f6 100%);color:#fff;text-decoration:none;box-shadow:0 4px 16px rgba(59,130,246,0.13);transition:background 0.2s;">Match Opportunities with Resume</a>
+    <div style="max-width: 600px; margin: 2.5rem auto 0 auto;">
+        <div style="background: linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%); border-radius: 1.2em; box-shadow: 0 2px 12px #06b6d4a0; padding: 2.2em 2em; text-align: center; color: #fff;">
+            <div style="font-size: 2.2em; margin-bottom: 0.5em;">🤖</div>
+            <div style="font-size: 1.3em; font-weight: 700; margin-bottom: 0.5em;">AI Email Generator</div>
+            <div style="font-size: 1.08em; margin-bottom: 1.2em;">Instantly generate personalized, professional emails to connect with organizations. Save time and make a great impression!</div>
+            <a href="/ai-email" style="display:inline-block;background:#fff;color:#3b82f6;font-weight:700;font-size:1.1em;padding:0.9em 2em;border-radius:1em;text-decoration:none;box-shadow:0 2px 8px #3b82f6a0;transition:background 0.2s,box-shadow 0.2s;">Try the AI Email Generator</a>
+        </div>
     </div>
 {% endif %}
-
-<div style="margin: 2rem auto; max-width: 600px; text-align: center;">
-    <a href="/ai-email" style="display:inline-block;background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;font-weight:700;font-size:1.2em;padding:1.1em 2.2em;border-radius:1.2em;text-decoration:none;box-shadow:0 2px 8px #06b6d4a0;transition:background 0.2s,box-shadow 0.2s;">Try the AI Email Generator</a>
-</div>
 {% endblock %}
