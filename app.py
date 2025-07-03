@@ -1254,6 +1254,57 @@ def ai_email():
     connection.close()
     return render_template("ai_email.html", opportunities=opportunities)
 
+@app.route('/admin/add-opportunity', methods=['GET', 'POST'])
+def admin_add_opportunity():
+    if not session.get('name'):
+        return redirect('/auth/login')
+    # Check if user is admin
+    user_connection = sqlite3.connect('users.db')
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute('SELECT is_admin FROM users WHERE username = ?', (session.get('name'),))
+    user = user_crsr.fetchone()
+    if not user or not user['is_admin']:
+        user_connection.close()
+        return 'Access denied', 403
+    user_connection.close()
+    message = None
+    if request.method == 'POST':
+        try:
+            data = {
+                'organization_name': request.form.get('organization_name'),
+                'title': request.form.get('title'),
+                'description': request.form.get('description'),
+                'location': request.form.get('location'),
+                'city': request.form.get('city'),
+                'state': request.form.get('state'),
+                'duration': request.form.get('duration'),
+                'volunteers_needed': request.form.get('volunteers_needed'),
+                'contact_info': request.form.get('contact_info'),
+                'apply_link': request.form.get('apply_link'),
+                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'latitude': request.form.get('latitude'),
+                'longitude': request.form.get('longitude'),
+            }
+            if not all([data['organization_name'], data['title'], data['description'], data['location'], data['city'], data['state'], data['contact_info'], data['apply_link']]):
+                message = 'Please fill in all required fields.'
+            else:
+                conn = sqlite3.connect('opportunities.db')
+                crsr = conn.cursor()
+                crsr.execute('''
+                    INSERT INTO opportunities (
+                        organization_name, title, description, location, city, state, duration, volunteers_needed, contact_info, apply_link, created_at, latitude, longitude
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    data['organization_name'], data['title'], data['description'], data['location'], data['city'], data['state'], data['duration'], data['volunteers_needed'], data['contact_info'], data['apply_link'], data['created_at'], data['latitude'], data['longitude']
+                ))
+                conn.commit()
+                conn.close()
+                message = 'Opportunity added successfully!'
+        except Exception as e:
+            message = f'Error: {str(e)}'
+    return render_template('admin_add_opportunity.html', message=message)
+
 # Initialize database tables if they don't exist
 init_db()
 
