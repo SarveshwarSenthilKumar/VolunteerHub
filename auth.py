@@ -43,7 +43,7 @@ def signup():
         name = request.form.get('name')
         city = request.form.get('city')
         state = request.form.get('state')
-        phone = request.form.get('phone')
+        phone = request.form.get('phoneNumber')
         
         if not all([username, password, email, name, city, state, phone]):
             return render_template('auth/signup.html', error='Please fill in all fields')
