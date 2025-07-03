@@ -704,6 +704,7 @@ def init_db():
             dateJoined TEXT,
             city TEXT,
             state TEXT,
+            phone TEXT,
             saved_opportunities TEXT DEFAULT '[]',
             is_admin INTEGER DEFAULT 0,
             skills TEXT DEFAULT ''
@@ -937,9 +938,9 @@ def admin_dashboard():
     # User search logic
     search_query = request.args.get("search", "").strip()
     if search_query:
-        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, dateJoined, saved_opportunities, is_admin, skills, birthday FROM users WHERE username LIKE ? ORDER BY id DESC", (f"%{search_query}%",))
+        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, phone, dateJoined, saved_opportunities, is_admin, skills, birthday FROM users WHERE username LIKE ? ORDER BY id DESC", (f"%{search_query}%",))
     else:
-        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, dateJoined, saved_opportunities, is_admin, skills, birthday FROM users ORDER BY id DESC")
+        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, phone, dateJoined, saved_opportunities, is_admin, skills, birthday FROM users ORDER BY id DESC")
     users = [dict(row) for row in user_crsr.fetchall()]
 
     # Get stats
@@ -981,6 +982,7 @@ def profile():
         email = request.form.get("email", user["emailaddress"])
         city = request.form.get("city", user["city"])
         state = request.form.get("state", user["state"])
+        phone = request.form.get("phone", user["phone"])
         birthday = request.form.get("birthday", user["birthday"] if "birthday" in user.keys() else None)
         password = request.form.get("password", None)
         skills = request.form.get("skills", user["skills"] if "skills" in user.keys() else "")
@@ -998,6 +1000,9 @@ def profile():
         if state != user["state"]:
             update_fields.append("state = ?")
             update_values.append(state)
+        if phone != user["phone"]:
+            update_fields.append("phone = ?")
+            update_values.append(phone)
         if birthday and (not user["birthday"] or birthday != user["birthday"]):
             update_fields.append("birthday = ?")
             update_values.append(birthday)
