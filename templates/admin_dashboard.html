@@ -122,6 +122,39 @@
             .stats-row { flex-direction: column; gap: 1.2rem; }
             .stat-card { min-width: 0; padding: 1.2rem 1rem; }
         }
+        .user-details-card {
+            background: #23272a;
+            color: #fff;
+            border-radius: 1em;
+            padding: 1.2em 1.5em;
+            margin-top: 0.5em;
+            box-shadow: 0 4px 24px rgba(59,130,246,0.13);
+            min-width: 320px;
+            max-width: 400px;
+            position: absolute;
+            z-index: 20;
+            border: 1px solid #3b82f6;
+            font-size: 1.08em;
+            animation: fadeInCard 0.2s;
+        }
+        .user-details-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.7em;
+            gap: 0.7em;
+        }
+        .user-details-label {
+            font-weight: 600;
+            color: #3b82f6;
+            min-width: 120px;
+            display: flex;
+            align-items: center;
+            gap: 0.4em;
+        }
+        @keyframes fadeInCard {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -155,5 +188,75 @@
         <div class="message">{{ message }}</div>
         {% endif %}
     </div>
+    <!-- User Management Section -->
+    <div class="dashboard-container" style="margin-top:2.5rem;max-width:900px;">
+        <div class="dashboard-title" style="font-size:2rem;margin-bottom:1.5rem;">User Management</div>
+        <form method="get" style="margin-bottom:1.5rem;max-width:420px;margin-left:auto;margin-right:auto;">
+            <div class="search-bar">
+                <input type="text" name="search" placeholder="Search by username..." value="{{ search_query }}" autocomplete="off">
+                <button type="submit">Search</button>
+            </div>
+        </form>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;background:rgba(30,40,60,0.92);border-radius:1.2rem;box-shadow:0 2px 12px rgba(59,130,246,0.10);">
+                <thead>
+                    <tr style="background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;">
+                        <th style="padding:1rem 0.5rem;">Username</th>
+                        <th style="padding:1rem 0.5rem;">Name</th>
+                        <th style="padding:1rem 0.5rem;">Email</th>
+                        <th style="padding:1rem 0.5rem;">Admin</th>
+                        <th style="padding:1rem 0.5rem;">More</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr style="border-bottom:1px solid #23272a;">
+                        <td style="padding:0.8rem 0.5rem;font-weight:600;">{{ user.username }}</td>
+                        <td style="padding:0.8rem 0.5rem;">{{ user.name }}</td>
+                        <td style="padding:0.8rem 0.5rem;">{{ user.emailAddress }}</td>
+                        <td style="padding:0.8rem 0.5rem;">{% if user.is_admin %}<span style="color:#3b82f6;font-weight:700;">Yes</span>{% else %}No{% endif %}</td>
+                        <td style="padding:0.8rem 0.5rem;">
+                            <button class="dropdown-btn" onclick="toggleDropdown(this)" style="background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;border:none;border-radius:1em;padding:0.4em 1.2em;font-weight:700;cursor:pointer;">Details</button>
+                            <div class="dropdown-content user-details-card" style="display:none;">
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-id-badge"></i> ID:</span> <span>{{ user.id }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-user"></i> Username:</span> <span>{{ user.username }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-user-tag"></i> Name:</span> <span>{{ user.name }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-envelope"></i> Email:</span> <span>{{ user.emailAddress }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-city"></i> City:</span> <span>{{ user.city }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-map-marker-alt"></i> State:</span> <span>{{ user.state }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-calendar-alt"></i> Date Joined:</span> <span>{{ user.dateJoined }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-birthday-cake"></i> Birthday:</span> <span>{{ user.birthday or 'N/A' }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-cogs"></i> Skills:</span> <span>{{ user.skills }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-bookmark"></i> Saved Opportunities:</span> <span>{{ user.saved_opportunities }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-user-shield"></i> Admin:</span> <span>{% if user.is_admin %}Yes{% else %}No{% endif %}</span></div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+    function toggleDropdown(btn) {
+        // Close any open dropdowns
+        document.querySelectorAll('.dropdown-content').forEach(function(el) { el.style.display = 'none'; });
+        // Open the clicked one
+        var content = btn.nextElementSibling;
+        if (content.style.display === 'block') {
+            content.style.display = 'none';
+        } else {
+            content.style.display = 'block';
+            // Optional: scroll into view if needed
+            content.scrollIntoView({behavior:'smooth',block:'nearest'});
+        }
+    }
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('dropdown-btn')) {
+            document.querySelectorAll('.dropdown-content').forEach(function(el) { el.style.display = 'none'; });
+        }
+    });
+    </script>
 </body>
 </html> 

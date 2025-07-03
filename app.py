@@ -922,7 +922,7 @@ def admin_dashboard():
 
     # Handle admin promotion (persistent)
     message = None
-    if request.method == "POST":
+    if request.method == "POST" and "promote_username" in request.form:
         promote_username = request.form.get("promote_username", "").strip()
         if promote_username:
             user_crsr.execute("SELECT * FROM users WHERE username = ?", (promote_username,))
@@ -933,6 +933,15 @@ def admin_dashboard():
                 message = f"User '{promote_username}' is now an admin."
             else:
                 message = f"User '{promote_username}' not found."
+
+    # User search logic
+    search_query = request.args.get("search", "").strip()
+    if search_query:
+        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, dateJoined, saved_opportunities, is_admin, skills, birthday FROM users WHERE username LIKE ? ORDER BY id DESC", (f"%{search_query}%",))
+    else:
+        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, dateJoined, saved_opportunities, is_admin, skills, birthday FROM users ORDER BY id DESC")
+    users = [dict(row) for row in user_crsr.fetchall()]
+
     # Get stats
     user_crsr.execute("SELECT COUNT(*) FROM users")
     total_users = user_crsr.fetchone()[0]
@@ -944,7 +953,7 @@ def admin_dashboard():
     opp_crsr.execute("SELECT COUNT(*) FROM opportunities")
     total_opps = opp_crsr.fetchone()[0]
     opp_connection.close()
-    return render_template("admin_dashboard.html", total_users=total_users, total_admins=total_admins, total_opps=total_opps, message=message)
+    return render_template("admin_dashboard.html", total_users=total_users, total_admins=total_admins, total_opps=total_opps, message=message, users=users, search_query=search_query)
 
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
