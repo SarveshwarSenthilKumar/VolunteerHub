@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Manage Opportunities - Admin{% endblock %}
+{% block content %}
+<div class="dashboard-container" style="max-width:900px;margin:3rem auto 0 auto;background:rgba(20,30,50,0.97);border-radius:2rem;box-shadow:0 8px 40px 0 rgba(59,130,246,0.18);padding:2.5rem 2rem;">
+    <div class="dashboard-title" style="font-size:2rem;margin-bottom:1.5rem;">Manage Opportunities</div>
+    {% if message %}
+    <div class="message" style="margin-bottom:1.5rem;">{{ message }}</div>
+    {% endif %}
+    <form method="get" style="margin-bottom:1.5rem;max-width:420px;margin-left:auto;margin-right:auto;">
+        <div class="search-bar">
+            <input type="text" name="search" placeholder="Search by title, organization, or city..." value="{{ search }}" autocomplete="off">
+            <button type="submit">Search</button>
+        </div>
+    </form>
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;background:rgba(30,40,60,0.92);border-radius:1.2rem;box-shadow:0 2px 12px rgba(59,130,246,0.10);">
+            <thead>
+                <tr style="background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;">
+                    <th style="padding:1rem 0.5rem;">ID</th>
+                    <th style="padding:1rem 0.5rem;">Title</th>
+                    <th style="padding:1rem 0.5rem;">Organization</th>
+                    <th style="padding:1rem 0.5rem;">City</th>
+                    <th style="padding:1rem 0.5rem;">State</th>
+                    <th style="padding:1rem 0.5rem;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for opp in opportunities %}
+                <tr style="border-bottom:1px solid #23272a;">
+                    <td style="padding:0.8rem 0.5rem;">{{ opp.id }}</td>
+                    <td style="padding:0.8rem 0.5rem;">{{ opp.title }}</td>
+                    <td style="padding:0.8rem 0.5rem;">{{ opp.organization_name }}</td>
+                    <td style="padding:0.8rem 0.5rem;">{{ opp.city }}</td>
+                    <td style="padding:0.8rem 0.5rem;">{{ opp.state }}</td>
+                    <td style="padding:0.8rem 0.5rem;">
+                        <form method="post" action="/admin/delete-opportunity/{{ opp.id }}" style="display:inline;">
+                            <button type="submit" onclick="return confirm('Are you sure you want to delete this opportunity?');" style="background:#f87171;color:#fff;border:none;border-radius:0.7em;padding:0.4em 1.2em;font-weight:700;cursor:pointer;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<style>
+.search-bar { display: flex; align-items: center; background: #181f2e; border-radius: 2rem; padding: 0.5rem 1.2rem; box-shadow: 0 2px 8px rgba(59,130,246,0.07); }
+.search-bar input[type="text"] { flex: 1; background: transparent; border: none; color: #fff; font-size: 1.1rem; padding: 0.7rem 0.5rem; outline: none; }
+.search-bar button { background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%); color: #fff; border: none; border-radius: 2rem; padding: 0.7rem 2rem; font-size: 1.1rem; font-weight: 700; margin-left: 1rem; cursor: pointer; transition: background 0.2s; }
+.search-bar button:hover { background: #2563eb; }
+.message { background: #23272a; color: #fff; border-radius: 0.7rem; padding: 1rem 1.5rem; text-align: center; font-size: 1.1rem; box-shadow: 0 2px 8px rgba(59,130,246,0.07); margin-bottom: 1.2rem; }
+</style>
+{% endblock %} 

@@ -1305,6 +1305,58 @@ def admin_add_opportunity():
             message = f'Error: {str(e)}'
     return render_template('admin_add_opportunity.html', message=message)
 
+@app.route('/admin/opportunities', methods=['GET', 'POST'])
+def admin_opportunities():
+    if not session.get('name'):
+        return redirect('/auth/login')
+    # Check if user is admin
+    user_connection = sqlite3.connect('users.db')
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute('SELECT is_admin FROM users WHERE username = ?', (session.get('name'),))
+    user = user_crsr.fetchone()
+    if not user or not user['is_admin']:
+        user_connection.close()
+        return 'Access denied', 403
+    user_connection.close()
+    message = request.args.get('message')
+    search = request.args.get('search', '').strip()
+    conn = sqlite3.connect('opportunities.db')
+    conn.row_factory = sqlite3.Row
+    crsr = conn.cursor()
+    if search:
+        crsr.execute("""
+            SELECT * FROM opportunities WHERE 
+            title LIKE ? OR organization_name LIKE ? OR city LIKE ?
+            ORDER BY created_at DESC
+        """, (f'%{search}%', f'%{search}%', f'%{search}%'))
+    else:
+        crsr.execute("SELECT * FROM opportunities ORDER BY created_at DESC LIMIT 50")
+    opportunities = [dict(row) for row in crsr.fetchall()]
+    conn.close()
+    return render_template('admin_opportunities.html', opportunities=opportunities, search=search, message=message)
+
+@app.route('/admin/delete-opportunity/<int:opp_id>', methods=['POST'])
+def admin_delete_opportunity(opp_id):
+    if not session.get('name'):
+        return redirect('/auth/login')
+    # Check if user is admin
+    user_connection = sqlite3.connect('users.db')
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute('SELECT is_admin FROM users WHERE username = ?', (session.get('name'),))
+    user = user_crsr.fetchone()
+    if not user or not user['is_admin']:
+        user_connection.close()
+        return 'Access denied', 403
+    user_connection.close()
+    conn = sqlite3.connect('opportunities.db')
+    crsr = conn.cursor()
+    crsr.execute('DELETE FROM opportunities WHERE id = ?', (opp_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('admin_opportunities', message='Opportunity deleted.'))
+
 # Initialize database tables if they don't exist
 init_db()
 
