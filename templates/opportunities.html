@@ -317,6 +317,51 @@
     .event-type-checkbox input[type="checkbox"]:focus + span {
         color: #fff;
     }
+    @media (max-width: 600px) {
+        .search-section {
+            padding: 1rem 0.5rem;
+        }
+        .search-form {
+            grid-template-columns: 1fr;
+            gap: 0.7rem;
+        }
+        .opportunities-grid {
+            grid-template-columns: 1fr;
+            gap: 1.2rem;
+        }
+        .flip-card {
+            min-height: 320px;
+            border-radius: 1rem;
+        }
+        .flip-card-front, .flip-card-back {
+            padding: 1rem 0.5rem;
+            border-radius: 1rem;
+        }
+        .opportunity-title {
+            font-size: 1.1rem;
+        }
+        .organization {
+            font-size: 1em;
+        }
+        .description {
+            font-size: 0.98em;
+        }
+        .actions {
+            gap: 0.7rem;
+        }
+        .actions .button {
+            font-size: 1em;
+            padding: 0.7em 1.2em;
+        }
+    }
+    @media (max-width: 400px) {
+        .opportunity-title {
+            font-size: 0.95rem;
+        }
+        .actions .button {
+            font-size: 0.95em;
+        }
+    }
 </style>
 {% endblock %}
 
