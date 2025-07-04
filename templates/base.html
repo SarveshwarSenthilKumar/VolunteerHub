@@ -187,40 +187,41 @@
             border-color: var(--accent-primary);
         }
 
-        /* Minimal modern menu button styles */
-        .modern-menu-btn {
+        /* Simplistic hamburger menu styles */
+        .simple-menu-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.08);
-            border: 1.5px solid #3b82f6;
-            box-shadow: 0 2px 12px rgba(59,130,246,0.10);
+            width: 44px;
+            height: 44px;
+            background: none;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
             cursor: pointer;
             position: absolute;
             right: 1rem;
             top: 50%;
             transform: translateY(-50%);
             z-index: 20000;
-            transition: background 0.18s, box-shadow 0.18s;
             outline: none;
+            transition: background 0.18s, box-shadow 0.18s, border 0.18s;
         }
-        .modern-menu-btn:hover, .modern-menu-btn:focus {
-            background: rgba(59,130,246,0.12);
-            box-shadow: 0 4px 24px rgba(59,130,246,0.18);
+        .simple-menu-btn:hover, .simple-menu-btn:focus, .simple-menu-btn:active {
+            background: none;
+            border: none;
+            box-shadow: none;
         }
-        .modern-menu-icon {
-            width: 26px;
-            height: 26px;
+        .simple-menu-icon {
+            width: 28px;
+            height: 28px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             gap: 6px;
         }
-        .modern-menu-icon span {
+        .simple-menu-icon span {
             display: block;
             width: 100%;
             height: 3.5px;
@@ -228,40 +229,44 @@
             background: #3b82f6;
             transition: background 0.2s;
         }
-        .modern-dropdown {
+        .simple-menu-btn:hover .simple-menu-icon span,
+        .simple-menu-btn:focus .simple-menu-icon span,
+        .simple-menu-btn:active .simple-menu-icon span {
+            background: #fff;
+        }
+        .simple-dropdown {
             position: absolute;
             top: 100%;
             right: 0;
-            min-width: 210px;
-            background: rgba(30,40,60,0.92);
-            border-radius: 1rem;
-            box-shadow: 0 8px 32px rgba(59,130,246,0.10);
-            backdrop-filter: blur(10px);
-            border: 1.5px solid #3b82f6;
-            padding: 1.1rem 0.5rem;
+            min-width: 180px;
+            background: #fff;
+            border-radius: 0.7rem;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+            padding: 0.7rem 0.3rem;
             z-index: 9999;
             opacity: 0;
             pointer-events: none;
             transform: translateY(-10px);
             transition: opacity 0.18s, transform 0.18s;
         }
-        .modern-dropdown.open {
+        .simple-dropdown.open {
             opacity: 1;
             pointer-events: auto;
             transform: translateY(0);
         }
-        .modern-dropdown .nav-link {
-            color: #fff;
+        .simple-dropdown .nav-link {
+            color: #23272a;
             font-weight: 600;
-            padding: 0.7rem 1rem;
-            border-radius: 0.7rem;
-            margin-bottom: 0.2rem;
+            padding: 0.6rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.1rem;
             background: none;
             transition: background 0.18s, color 0.18s;
+            display: block;
         }
-        .modern-dropdown .nav-link:hover {
-            background: #3b82f6;
-            color: #fff;
+        .simple-dropdown .nav-link:hover {
+            background: #f1f5f9;
+            color: #3b82f6;
         }
         @media (max-width: 600px) {
             .container {
@@ -311,13 +316,13 @@
             }
         }
         @media (max-width: 900px) {
-            .modern-menu-btn { display: flex; }
+            .simple-menu-btn { display: flex; }
             .nav-links { display: none !important; }
         }
         @media (min-width: 901px) {
-            .modern-menu-btn, .modern-dropdown { display: none !important; }
+            .simple-menu-btn, .simple-dropdown { display: none !important; }
         }
-        .nav-toggle, .mobile-nav-dropdown, .futuristic-menu-btn, .futuristic-dropdown { display: none !important; }
+        .nav-toggle, .mobile-nav-dropdown, .futuristic-menu-btn, .futuristic-dropdown, .modern-menu-btn, .modern-dropdown { display: none !important; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -326,14 +331,14 @@
         <div class="navbar-content" style="z-index: 10; position: relative;">
             <a href="/" class="logo">VolunteerHub</a>
             {% if request.path == '/' %}
-                <button class="modern-menu-btn" id="modern-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="modern-dropdown">
-                    <span class="modern-menu-icon">
+                <button class="simple-menu-btn" id="simple-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="simple-dropdown">
+                    <span class="simple-menu-icon">
                         <span></span>
                         <span></span>
                         <span></span>
                     </span>
                 </button>
-                <div class="modern-dropdown" id="modern-dropdown">
+                <div class="simple-dropdown" id="simple-dropdown">
                     <div class="mobile-nav-links">
                         {% if session.get("name") %}
                             <a href="/swipe" class="nav-link">Find Opportunities</a>
@@ -376,8 +381,8 @@
     {% block extra_js %}
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const menuBtn = document.getElementById('modern-menu-btn');
-        const dropdown = document.getElementById('modern-dropdown');
+        const menuBtn = document.getElementById('simple-menu-btn');
+        const dropdown = document.getElementById('simple-dropdown');
         if (menuBtn && dropdown) {
             function toggleMenu(e) {
                 e.preventDefault();

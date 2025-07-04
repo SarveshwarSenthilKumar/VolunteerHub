@@ -181,15 +181,32 @@ function generateEmailForOpportunity(opportunity) {
         loading.style.display = 'none';
         if (data && data.email) {
             content.textContent = data.email;
+            content.contentEditable = window.innerWidth > 900 ? 'true' : 'false';
             content.style.display = 'block';
-            copyBtn.style.display = 'inline-block';
+            if (window.innerWidth <= 900) {
+                content.style.cursor = 'pointer';
+                content.onclick = function() {
+                    // Try modern clipboard API first
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(data.email).then(function() {
+                            showCopyToast();
+                        }, function() {
+                            fallbackCopyEmail(data.email);
+                        });
+                    } else {
+                        fallbackCopyEmail(data.email);
+                    }
+                };
+            } else {
+                content.onclick = null;
+                content.style.cursor = 'text';
+            }
+            copyBtn.style.display = window.innerWidth > 900 ? 'inline-block' : 'none';
             copyBtn.textContent = 'Copy Email';
             copyBtn.onclick = function() {
-                // Try modern clipboard API first
                 if (navigator.clipboard) {
                     navigator.clipboard.writeText(data.email).then(function() {
-                        copyBtn.textContent = 'Copied!';
-                        setTimeout(() => { copyBtn.textContent = 'Copy Email'; }, 1500);
+                        showCopyToast();
                     }, function() {
                         fallbackCopyEmail(data.email);
                     });
@@ -212,6 +229,50 @@ function generateEmailForOpportunity(opportunity) {
         errorDiv.style.display = 'block';
     });
 }
+function fallbackCopyEmail(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showCopyToast();
+    } catch (err) {
+        alert('Copy failed. Please copy manually.');
+    }
+    document.body.removeChild(textarea);
+}
+function showCopyToast() {
+    let toast = document.getElementById('copy-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'copy-toast';
+        toast.style.position = 'fixed';
+        toast.style.bottom = '2.5rem';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.background = '#3b82f6';
+        toast.style.color = '#fff';
+        toast.style.padding = '0.7rem 1.5rem';
+        toast.style.borderRadius = '1rem';
+        toast.style.fontWeight = '600';
+        toast.style.fontSize = '1.1rem';
+        toast.style.zIndex = '9999';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = 'Copied!';
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 1500);
+}
+window.addEventListener('resize', function() {
+    const content = document.getElementById('email-content');
+    const copyBtn = document.getElementById('copy-email-btn');
+    if (content) {
+        content.contentEditable = window.innerWidth > 900 ? 'true' : 'false';
+        content.style.cursor = window.innerWidth <= 900 ? 'pointer' : 'text';
+        copyBtn.style.display = window.innerWidth > 900 ? 'inline-block' : 'none';
+    }
+});
 </script>
 {% endblock %}
 <!-- End of ai_email.html --> 
