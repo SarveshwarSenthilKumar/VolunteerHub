@@ -125,6 +125,13 @@ def filter_generic_skills(skills):
 
 # PATCH: get_best_opportunities_with_label returns (results, randomized, fallback_label)
 def get_best_opportunities_with_label(crsr, user_id, city, skills, base_query, base_params, skill_fields, min_results=1, debug_label=""):
+    # If no skills, just show all matching opportunities (no skill filter)
+    if not skills:
+        query = base_query + " ORDER BY RANDOM()"
+        crsr.execute(query, base_params)
+        results = [dict(row) for row in crsr.fetchall()]
+        results = [opp for opp in results if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
+        return results, True, "no-skills"
     attempts = []
     used_skills = [s for s in skills]
     attempts.append(("all", used_skills))
@@ -171,18 +178,21 @@ def swipe():
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
+    # Use exact city match (case-insensitive)
     base_query = """
         SELECT o.* FROM opportunities o
         LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-        WHERE uo.id IS NULL AND o.city LIKE ?
+        WHERE uo.id IS NULL AND LOWER(o.city) = LOWER(?)
     """
-    base_params = [user["id"], f"%{user['city']}%"]
+    base_params = [user["id"], user["city"]]
     skill_fields = ["o.title", "o.description", "o.organization_name"]
     opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, debug_label="swipe")
     connection.close()
-    # If still empty, try to fetch new ones from ChatGPT and insert (for skills)
-    if not opportunities and used_skills:
-        chatgpt_prompt = f"Generate 5 volunteer opportunities in {user['city']} related to the following skills: {', '.join(used_skills)}. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nState: [State]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."
+    # If still empty, keep fetching from ChatGPT until we get at least one opportunity
+    attempts = 0
+    max_attempts = 3
+    while not opportunities and attempts < max_attempts:
+        chatgpt_prompt = f"Generate 5 volunteer opportunities in the city of '{user['city']}' related to the following skills: {', '.join(used_skills)}. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nState: [State]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."
         opportunities_text = get_opportunities_from_chatgpt(user["city"], custom_prompt=chatgpt_prompt)
         if opportunities_text:
             parsed_opportunities = extract_opportunity_info(opportunities_text, user["state"])
@@ -199,9 +209,9 @@ def swipe():
             connection = sqlite3.connect("opportunities.db")
             connection.row_factory = sqlite3.Row
             crsr = connection.cursor()
-            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, debug_label="swipe-refetch")
+            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, debug_label=f"swipe-refetch-{attempts}")
             connection.close()
-    # Custom message for rare skills fallback
+        attempts += 1
     rare_message = None
     if fallback_label == "random":
         rare_message = "That's quite a specialty, a rare one!"
@@ -986,6 +996,20 @@ def profile():
         birthday = request.form.get("birthday", user["birthday"] if "birthday" in user.keys() else None)
         password = request.form.get("password", None)
         skills = request.form.get("skills", user["skills"] if "skills" in user.keys() else "")
+        # Age validation
+        if birthday:
+            try:
+                dob = datetime.strptime(birthday, '%Y-%m-%d')
+                today = datetime.now()
+                age = (today - dob).days // 365
+                if age < 6:
+                    message = "You must be at least 6 years old."
+            except Exception:
+                message = "Invalid birthday."
+        # Phone validation (simple international/US number check)
+        phone_pattern = r'^(\+\d{1,3}[- ]?)?\d{10}$'
+        if phone and not re.match(phone_pattern, phone):
+            message = "Please enter a valid phone number (10 digits, with optional country code)."
         update_fields = []
         update_values = []
         if name != user["name"]:

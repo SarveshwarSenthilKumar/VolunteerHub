@@ -70,10 +70,18 @@
         color: var(--text-secondary);
         margin-bottom: 1rem;
         flex-grow: 1;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+        max-height: 120px;
+        overflow-y: auto !important;
+        white-space: pre-line;
+        scrollbar-width: thin;
+        transition: max-height 0.2s;
+        cursor: pointer;
+    }
+    .flip-card-front .description, .flip-card-back .description {
+        max-height: 120px;
+        overflow-y: auto;
+        white-space: pre-line;
+        scrollbar-width: thin;
     }
     .details {
         display: flex;
@@ -165,18 +173,48 @@
     }
     @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
     #ai-email-modal::-webkit-scrollbar { display: none; }
+    .randomized-message {
+        background:#23272a;
+        color:#fbbf24;
+        padding:1rem 1.5rem;
+        border-radius:1rem;
+        margin-bottom:1.5rem;
+        text-align:center;
+        word-break:break-word;
+        max-width:100vw;
+        box-sizing:border-box;
+        overflow-wrap:break-word;
+    }
+    html, body {
+        overflow-x: hidden;
+    }
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+    }
     @media (max-width: 600px) {
+        .container {
+            padding: 0.5rem;
+            min-height: 100vh;
+        }
         .swipe-container {
             width: 98vw;
             max-width: 100vw;
-            height: 80vh;
-            min-height: 420px;
-            margin: 1rem auto;
+            height: 75vh;
+            min-height: 320px;
+            max-height: 520px;
+            margin: 0 auto;
         }
         .flip-card {
             width: 98vw;
-            height: 80vh;
-            min-height: 420px;
+            height: 75vh;
+            min-height: 320px;
+            max-height: 520px;
             border-radius: 2.2rem;
         }
         .flip-card-front, .flip-card-back {
@@ -201,12 +239,30 @@
             height: 80px;
             font-size: 2.2rem;
         }
+        .randomized-message {
+            font-size: 1em;
+            padding: 0.7rem 0.5rem;
+            border-radius: 0.8rem;
+            margin-left: 0;
+            margin-right: 0;
+            max-width: 100vw;
+        }
+        .description, .flip-card-front .description, .flip-card-back .description {
+            max-height: 80px;
+        }
+        .description {
+            max-height: 180px;
+            min-height: 60px;
+            overflow-y: auto;
+            white-space: pre-line;
+        }
     }
     @media (max-width: 400px) {
         .swipe-container, .flip-card {
             width: 100vw;
-            height: 75vh;
-            min-height: 320px;
+            height: 62vh;
+            min-height: 200px;
+            max-height: 340px;
         }
         .opportunity-title {
             font-size: 1.3rem;
@@ -216,69 +272,76 @@
             height: 60px;
             font-size: 1.5rem;
         }
+        .randomized-message {
+            font-size: 0.95em;
+            padding: 0.5rem 0.2rem;
+            border-radius: 0.6rem;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="swipe-container">
-    {% if error_message %}
-    <div style="background:#fbbf24;color:#23272a;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;font-weight:700;">
-        {{ error_message }}
-    </div>
-    {% endif %}
-    {% if randomized %}
-    <div class="randomized-message" style="background:#23272a;color:#fbbf24;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;">
-        Opportunities are shown in random order. Add your skills/interests in your <a href="/profile" style="color:#3b82f6;text-decoration:underline;">profile</a> for personalized matches!
-    </div>
-    {% endif %}
-    {% if opportunities %}
-        {% for opportunity in opportunities %}
-        <div class="flip-card" id="card-{{ loop.index0 }}" data-index="{{ loop.index0 }}" data-opportunity-id="{{ opportunity.id }}" {% if not loop.first %}style="display: none;"{% endif %}>
-            <div class="flip-card-inner">
-                <div class="flip-card-front">
-                    <div class="opportunity-title">{{ opportunity.organization_name }}</div>
-                    <div class="organization">{{ opportunity.organization_name }}</div>
-                    <div class="description">{{ opportunity.description }}</div>
-                    <div class="details">
-                        <div class="detail">📍 {{ opportunity.city }}</div>
-                        <div class="detail">{{ opportunity.location }}</div>
+<div class="container">
+    <div class="swipe-container">
+        {% if error_message %}
+        <div style="background:#fbbf24;color:#23272a;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;font-weight:700;">
+            {{ error_message }}
+        </div>
+        {% endif %}
+        {% if randomized %}
+        <div class="randomized-message" style="background:#23272a;color:#fbbf24;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;">
+            Opportunities are shown in random order. Add your skills/interests in your <a href="/profile" style="color:#3b82f6;text-decoration:underline;">profile</a> for personalized matches!
+        </div>
+        {% endif %}
+        {% if opportunities %}
+            {% for opportunity in opportunities %}
+            <div class="flip-card" id="card-{{ loop.index0 }}" data-index="{{ loop.index0 }}" data-opportunity-id="{{ opportunity.id }}" {% if not loop.first %}style="display: none;"{% endif %}>
+                <div class="flip-card-inner">
+                    <div class="flip-card-front">
+                        <div class="opportunity-title">{{ opportunity.title }}</div>
+                        <div class="organization">{{ opportunity.organization_name }}</div>
+                        <div class="description">{{ opportunity.description }}</div>
+                        <div class="details">
+                            <div class="detail">📍 {{ opportunity.city }}</div>
+                            <div class="detail">{{ opportunity.location }}</div>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="action-button dislike" onclick="handleAction('dislike', {{ loop.index0 }})">✕</button>
+                            <button class="action-button flip" onclick="flipCard({{ loop.index0 }})">🔄</button>
+                            <button class="action-button like" onclick="handleAction('like', {{ loop.index0 }})">✓</button>
+                        </div>
                     </div>
-                    <div class="action-buttons">
-                        <button class="action-button dislike" onclick="handleAction('dislike', {{ loop.index0 }})">✕</button>
-                        <button class="action-button flip" onclick="flipCard({{ loop.index0 }})">🔄</button>
-                        <button class="action-button like" onclick="handleAction('like', {{ loop.index0 }})">✓</button>
+                    <div class="flip-card-back">
+                        <div class="opportunity-title">Additional Details</div>
+                        <div class="description">{{ opportunity.description }}</div>
+                        <div class="details">
+                            <div class="detail">📍 {{ opportunity.city }}</div>
+                            <div class="detail">{{ opportunity.location }}</div>
+                            <div class="detail">⏰ {{ opportunity.duration }}</div>
+                            <div class="detail">👥 {{ opportunity.volunteers_needed }} needed</div>
+                        </div>
+                        {% if opportunity.apply_link %}
+                        <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank" style="margin: 1rem 0;">Apply Now</a>
+                        {% endif %}
+                        <div class="action-buttons">
+                            <button class="action-button dislike" onclick="handleAction('dislike', {{ loop.index0 }})">✕</button>
+                            <button class="action-button flip" onclick="flipCard({{ loop.index0 }})">🔄</button>
+                            <button class="action-button like" onclick="handleAction('like', {{ loop.index0 }})">✓</button>
+                        </div>
                     </div>
                 </div>
-                <div class="flip-card-back">
-                    <div class="opportunity-title">Additional Details</div>
-                    <div class="description">{{ opportunity.description }}</div>
-                    <div class="details">
-                        <div class="detail">📍 {{ opportunity.city }}</div>
-                        <div class="detail">{{ opportunity.location }}</div>
-                        <div class="detail">⏰ {{ opportunity.duration }}</div>
-                        <div class="detail">👥 {{ opportunity.volunteers_needed }} needed</div>
-                    </div>
-                    {% if opportunity.apply_link %}
-                    <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank" style="margin: 1rem 0;">Apply Now</a>
-                    {% endif %}
-                    <div class="action-buttons">
-                        <button class="action-button dislike" onclick="handleAction('dislike', {{ loop.index0 }})">✕</button>
-                        <button class="action-button flip" onclick="flipCard({{ loop.index0 }})">🔄</button>
-                        <button class="action-button like" onclick="handleAction('like', {{ loop.index0 }})">✓</button>
-                    </div>
-                </div>
+                <div class="swipe-indicator" id="indicator-{{ loop.index0 }}"></div>
             </div>
-            <div class="swipe-indicator" id="indicator-{{ loop.index0 }}"></div>
-        </div>
-        {% endfor %}
-    {% else %}
-        <div class="no-opportunities">
-            <h2>No More Opportunities</h2>
-            <p>We couldn't find any more volunteer opportunities matching your preferences.</p>
-            <a href="/opportunities" class="button button-primary">Search Again</a>
-        </div>
-    {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="no-opportunities">
+                <h2>No More Opportunities</h2>
+                <p>We couldn't find any more volunteer opportunities matching your preferences.</p>
+                <a href="/opportunities" class="button button-primary">Search Again</a>
+            </div>
+        {% endif %}
+    </div>
 </div>
 
 <!-- AI Email Modal -->
@@ -486,5 +549,17 @@ document.getElementById('copy-email-btn').onclick = function() {
     this.textContent = 'Copied!';
     setTimeout(() => { this.textContent = 'Copy Email'; }, 1500);
 };
+
+// Expand/collapse description on mobile
+function toggleDescription(e) {
+    if (window.innerWidth <= 600) {
+        e.currentTarget.classList.toggle('expanded');
+    }
+}
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.description').forEach(function(desc) {
+        desc.addEventListener('click', toggleDescription);
+    });
+});
 </script>
 {% endblock %} 

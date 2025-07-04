@@ -4,6 +4,7 @@ from datetime import datetime
 import pytz
 import sqlite3
 from SarvAuth import * #Used for user authentication functions
+import re
 
 auth_blueprint = Blueprint('auth', __name__)
 
@@ -44,7 +45,23 @@ def signup():
         city = request.form.get('city')
         state = request.form.get('state')
         phone = request.form.get('phoneNumber')
-        
+        date_of_birth = request.form.get('dateOfBirth')
+        # Age validation
+        if date_of_birth:
+            try:
+                dob = datetime.strptime(date_of_birth, '%Y-%m-%d')
+                today = datetime.now()
+                age = (today - dob).days // 365
+                if age < 6:
+                    return render_template('auth/signup.html', error='You must be at least 6 years old to sign up.')
+            except Exception:
+                return render_template('auth/signup.html', error='Invalid date of birth.')
+        else:
+            return render_template('auth/signup.html', error='Please enter your date of birth.')
+        # Phone validation (simple international/US number check)
+        phone_pattern = r'^(\+\d{1,3}[- ]?)?\d{10}$'
+        if not re.match(phone_pattern, phone):
+            return render_template('auth/signup.html', error='Please enter a valid phone number (10 digits, with optional country code).')
         if not all([username, password, email, name, city, state, phone]):
             return render_template('auth/signup.html', error='Please fill in all fields')
         

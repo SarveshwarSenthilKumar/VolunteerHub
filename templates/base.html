@@ -183,6 +183,63 @@
             border-color: var(--accent-primary);
         }
 
+        .mobile-nav-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background: var(--bg-secondary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            border-radius: 0 0 1rem 1rem;
+        }
+        .mobile-nav-dropdown.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .nav-toggle {
+            display: none;
+            position: relative;
+            z-index: 20000;
+            min-width: 48px;
+            min-height: 48px;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background: var(--accent-primary);
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            touch-action: manipulation;
+            margin: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        }
+        .nav-toggle:hover, .nav-toggle:active, .nav-toggle:focus {
+            background: var(--accent-secondary);
+            outline: none;
+        }
+        .mobile-nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        .mobile-nav-links .nav-link {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            transition: background 0.2s;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        .mobile-nav-links .nav-link:hover {
+            background: rgba(59,130,246,0.1);
+        }
+        .mobile-nav-links .nav-link:last-child {
+            border-bottom: none;
+        }
         @media (max-width: 600px) {
             .container {
                 padding: 0.5rem;
@@ -230,13 +287,29 @@
                 font-size: 1rem;
             }
         }
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none !important;
+            }
+            .nav-toggle {
+                display: block !important;
+            }
+            .navbar-content {
+                flex-direction: row;
+                align-items: center;
+                gap: 0.7rem;
+            }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
     <nav class="navbar">
-        <div class="navbar-content">
+        <div class="navbar-content" style="z-index: 10; position: relative;">
             <a href="/" class="logo">VolunteerHub</a>
+            <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mobile-nav-dropdown">
+                <span id="nav-toggle-icon">&#9776;</span>
+            </button>
             <div class="nav-links">
                 {% if session.get("name") %}
                     <a href="/swipe" class="nav-link">Find Opportunities</a>
@@ -252,6 +325,23 @@
                     <a href="/auth/signup" class="nav-link">Sign Up</a>
                 {% endif %}
             </div>
+            <div class="mobile-nav-dropdown" id="mobile-nav-dropdown">
+                <div class="mobile-nav-links">
+                    {% if session.get("name") %}
+                        <a href="/swipe" class="nav-link">Find Opportunities</a>
+                        <a href="/all-opportunities" class="nav-link">View All Opportunities</a>
+                        <a href="/map" class="nav-link">Map</a>
+                        <a href="/saved" class="nav-link">Saved</a>
+                        <a href="/profile" class="nav-link">Profile</a>
+                        <a href="/ai-email" class="nav-link">AI Email Creator</a>
+                        <a href="/resume-match" class="nav-link">Resume Match</a>
+                        <a href="/auth/logout" class="nav-link">Logout</a>
+                    {% else %}
+                        <a href="/auth/login" class="nav-link">Login</a>
+                        <a href="/auth/signup" class="nav-link">Sign Up</a>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -259,6 +349,38 @@
         {% block content %}{% endblock %}
     </div>
 
-    {% block extra_js %}{% endblock %}
+    {% block extra_js %}
+    <script>
+    // Responsive nav toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const navToggle = document.querySelector('.nav-toggle');
+        const mobileDropdown = document.getElementById('mobile-nav-dropdown');
+        function openMenu(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const isOpen = mobileDropdown.classList.toggle('open');
+            navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+        if (navToggle && mobileDropdown) {
+            navToggle.addEventListener('click', openMenu, { passive: false });
+            navToggle.addEventListener('touchstart', openMenu, { passive: false });
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!mobileDropdown.contains(e.target) && !navToggle.contains(e.target)) {
+                    mobileDropdown.classList.remove('open');
+                    navToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+            // Close dropdown when a link is clicked
+            mobileDropdown.querySelectorAll('a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    mobileDropdown.classList.remove('open');
+                    navToggle.setAttribute('aria-expanded', 'false');
+                });
+            });
+        }
+    });
+    </script>
+    {% endblock %}
 </body>
 </html> 
