@@ -51,20 +51,24 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 2rem;
+            position: relative;
         }
-
         .logo {
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--text-primary);
             text-decoration: none;
+            flex-shrink: 0;
+            margin-right: 2.5rem;
         }
-
         .nav-links {
             display: flex;
             gap: 2rem;
+            flex: 1 1 auto;
+            justify-content: flex-end;
+            min-width: 0;
         }
-
         .nav-link {
             color: var(--text-secondary);
             text-decoration: none;
@@ -183,62 +187,81 @@
             border-color: var(--accent-primary);
         }
 
-        .mobile-nav-dropdown {
+        /* Minimal modern menu button styles */
+        .modern-menu-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid #3b82f6;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.10);
+            cursor: pointer;
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 20000;
+            transition: background 0.18s, box-shadow 0.18s;
+            outline: none;
+        }
+        .modern-menu-btn:hover, .modern-menu-btn:focus {
+            background: rgba(59,130,246,0.12);
+            box-shadow: 0 4px 24px rgba(59,130,246,0.18);
+        }
+        .modern-menu-icon {
+            width: 26px;
+            height: 26px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+        .modern-menu-icon span {
+            display: block;
+            width: 100%;
+            height: 3.5px;
+            border-radius: 2px;
+            background: #3b82f6;
+            transition: background 0.2s;
+        }
+        .modern-dropdown {
             position: absolute;
             top: 100%;
-            left: 0;
-            width: 100%;
-            background: var(--bg-secondary);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+            right: 0;
+            min-width: 210px;
+            background: rgba(30,40,60,0.92);
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px rgba(59,130,246,0.10);
+            backdrop-filter: blur(10px);
+            border: 1.5px solid #3b82f6;
+            padding: 1.1rem 0.5rem;
             z-index: 9999;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.2s;
-            border-radius: 0 0 1rem 1rem;
+            transform: translateY(-10px);
+            transition: opacity 0.18s, transform 0.18s;
         }
-        .mobile-nav-dropdown.open {
+        .modern-dropdown.open {
             opacity: 1;
             pointer-events: auto;
+            transform: translateY(0);
         }
-        .nav-toggle {
-            display: none;
-            position: relative;
-            z-index: 20000;
-            min-width: 48px;
-            min-height: 48px;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            background: var(--accent-primary);
-            border: none;
-            color: var(--text-primary);
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            touch-action: manipulation;
-            margin: 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        .modern-dropdown .nav-link {
+            color: #fff;
+            font-weight: 600;
+            padding: 0.7rem 1rem;
+            border-radius: 0.7rem;
+            margin-bottom: 0.2rem;
+            background: none;
+            transition: background 0.18s, color 0.18s;
         }
-        .nav-toggle:hover, .nav-toggle:active, .nav-toggle:focus {
-            background: var(--accent-secondary);
-            outline: none;
-        }
-        .mobile-nav-links {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-        .mobile-nav-links .nav-link {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            transition: background 0.2s;
-            font-size: 1rem;
-            font-weight: 500;
-        }
-        .mobile-nav-links .nav-link:hover {
-            background: rgba(59,130,246,0.1);
-        }
-        .mobile-nav-links .nav-link:last-child {
-            border-bottom: none;
+        .modern-dropdown .nav-link:hover {
+            background: #3b82f6;
+            color: #fff;
         }
         @media (max-width: 600px) {
             .container {
@@ -287,19 +310,14 @@
                 font-size: 1rem;
             }
         }
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none !important;
-            }
-            .nav-toggle {
-                display: block !important;
-            }
-            .navbar-content {
-                flex-direction: row;
-                align-items: center;
-                gap: 0.7rem;
-            }
+        @media (max-width: 900px) {
+            .modern-menu-btn { display: flex; }
+            .nav-links { display: none !important; }
         }
+        @media (min-width: 901px) {
+            .modern-menu-btn, .modern-dropdown { display: none !important; }
+        }
+        .nav-toggle, .mobile-nav-dropdown, .futuristic-menu-btn, .futuristic-dropdown { display: none !important; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -307,9 +325,32 @@
     <nav class="navbar">
         <div class="navbar-content" style="z-index: 10; position: relative;">
             <a href="/" class="logo">VolunteerHub</a>
-            <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mobile-nav-dropdown">
-                <span id="nav-toggle-icon">&#9776;</span>
-            </button>
+            {% if request.path == '/' %}
+                <button class="modern-menu-btn" id="modern-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="modern-dropdown">
+                    <span class="modern-menu-icon">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </span>
+                </button>
+                <div class="modern-dropdown" id="modern-dropdown">
+                    <div class="mobile-nav-links">
+                        {% if session.get("name") %}
+                            <a href="/swipe" class="nav-link">Find Opportunities</a>
+                            <a href="/all-opportunities" class="nav-link">View All Opportunities</a>
+                            <a href="/map" class="nav-link">Map</a>
+                            <a href="/saved" class="nav-link">Saved</a>
+                            <a href="/profile" class="nav-link">Profile</a>
+                            <a href="/ai-email" class="nav-link">AI Email Creator</a>
+                            <a href="/resume-match" class="nav-link">Resume Match</a>
+                            <a href="/auth/logout" class="nav-link">Logout</a>
+                        {% else %}
+                            <a href="/auth/login" class="nav-link">Login</a>
+                            <a href="/auth/signup" class="nav-link">Sign Up</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
             <div class="nav-links">
                 {% if session.get("name") %}
                     <a href="/swipe" class="nav-link">Find Opportunities</a>
@@ -325,23 +366,6 @@
                     <a href="/auth/signup" class="nav-link">Sign Up</a>
                 {% endif %}
             </div>
-            <div class="mobile-nav-dropdown" id="mobile-nav-dropdown">
-                <div class="mobile-nav-links">
-                    {% if session.get("name") %}
-                        <a href="/swipe" class="nav-link">Find Opportunities</a>
-                        <a href="/all-opportunities" class="nav-link">View All Opportunities</a>
-                        <a href="/map" class="nav-link">Map</a>
-                        <a href="/saved" class="nav-link">Saved</a>
-                        <a href="/profile" class="nav-link">Profile</a>
-                        <a href="/ai-email" class="nav-link">AI Email Creator</a>
-                        <a href="/resume-match" class="nav-link">Resume Match</a>
-                        <a href="/auth/logout" class="nav-link">Logout</a>
-                    {% else %}
-                        <a href="/auth/login" class="nav-link">Login</a>
-                        <a href="/auth/signup" class="nav-link">Sign Up</a>
-                    {% endif %}
-                </div>
-            </div>
         </div>
     </nav>
 
@@ -351,31 +375,28 @@
 
     {% block extra_js %}
     <script>
-    // Responsive nav toggle
     document.addEventListener('DOMContentLoaded', function() {
-        const navToggle = document.querySelector('.nav-toggle');
-        const mobileDropdown = document.getElementById('mobile-nav-dropdown');
-        function openMenu(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const isOpen = mobileDropdown.classList.toggle('open');
-            navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        }
-        if (navToggle && mobileDropdown) {
-            navToggle.addEventListener('click', openMenu, { passive: false });
-            navToggle.addEventListener('touchstart', openMenu, { passive: false });
-            // Close dropdown when clicking outside
+        const menuBtn = document.getElementById('modern-menu-btn');
+        const dropdown = document.getElementById('modern-dropdown');
+        if (menuBtn && dropdown) {
+            function toggleMenu(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const isOpen = dropdown.classList.toggle('open');
+                menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            }
+            menuBtn.addEventListener('click', toggleMenu);
+            menuBtn.addEventListener('touchstart', toggleMenu);
             document.addEventListener('click', function(e) {
-                if (!mobileDropdown.contains(e.target) && !navToggle.contains(e.target)) {
-                    mobileDropdown.classList.remove('open');
-                    navToggle.setAttribute('aria-expanded', 'false');
+                if (!dropdown.contains(e.target) && !menuBtn.contains(e.target)) {
+                    dropdown.classList.remove('open');
+                    menuBtn.setAttribute('aria-expanded', 'false');
                 }
             });
-            // Close dropdown when a link is clicked
-            mobileDropdown.querySelectorAll('a').forEach(function(link) {
+            dropdown.querySelectorAll('a').forEach(function(link) {
                 link.addEventListener('click', function() {
-                    mobileDropdown.classList.remove('open');
-                    navToggle.setAttribute('aria-expanded', 'false');
+                    dropdown.classList.remove('open');
+                    menuBtn.setAttribute('aria-expanded', 'false');
                 });
             });
         }

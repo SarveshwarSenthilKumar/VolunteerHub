@@ -185,9 +185,17 @@ function generateEmailForOpportunity(opportunity) {
             copyBtn.style.display = 'inline-block';
             copyBtn.textContent = 'Copy Email';
             copyBtn.onclick = function() {
-                navigator.clipboard.writeText(data.email);
-                copyBtn.textContent = 'Copied!';
-                setTimeout(() => { copyBtn.textContent = 'Copy Email'; }, 1500);
+                // Try modern clipboard API first
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(data.email).then(function() {
+                        copyBtn.textContent = 'Copied!';
+                        setTimeout(() => { copyBtn.textContent = 'Copy Email'; }, 1500);
+                    }, function() {
+                        fallbackCopyEmail(data.email);
+                    });
+                } else {
+                    fallbackCopyEmail(data.email);
+                }
             };
         } else {
             content.style.display = 'none';
