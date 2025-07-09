@@ -28,6 +28,8 @@ def login():
         if user and password == user['password']:
             session['user_id'] = user['id']
             session['username'] = user['username']
+            if user["is_admin"] != 0:
+                session["is_admin"] = user["is_admin"]
             session['name'] = user['username']
             return redirect('/')
         else:

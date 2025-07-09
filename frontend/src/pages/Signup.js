@@ -3,16 +3,28 @@ import { Box, Typography, TextField, Button, Paper, Container, Alert } from '@mu
 import api from '../api';
 
 function Signup() {
+  const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      const res = await api.post('/auth/signup', { name, email, password });
+      const res = await api.post('/auth/signup', { 
+        username, 
+        name, 
+        email, 
+        password, 
+        city, 
+        state, 
+        phone 
+      });
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
         window.location.href = '/';
@@ -20,7 +32,7 @@ function Signup() {
         setError('Invalid response from server.');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Signup failed.');
+      setError(err.response?.data?.error || 'Signup failed.');
     }
   };
 
@@ -33,7 +45,15 @@ function Signup() {
         {error && <Alert severity="error">{error}</Alert>}
         <Box component="form" onSubmit={handleSubmit}>
           <TextField
-            label="Name"
+            label="Username"
+            fullWidth
+            margin="normal"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+          <TextField
+            label="Full Name"
             fullWidth
             margin="normal"
             value={name}
@@ -56,6 +76,30 @@ function Signup() {
             margin="normal"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <TextField
+            label="City"
+            fullWidth
+            margin="normal"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            required
+          />
+          <TextField
+            label="State"
+            fullWidth
+            margin="normal"
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            required
+          />
+          <TextField
+            label="Phone Number"
+            fullWidth
+            margin="normal"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
             required
           />
           <Button

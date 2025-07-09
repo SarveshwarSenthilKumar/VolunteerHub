@@ -180,7 +180,12 @@
             <a href="/auth/login" class="button button-secondary">Sign In</a>
         </div>
     {% else %}
-        <a href="/swipe" class="button button-primary">Find Opportunities</a>
+        <div class="cta-buttons">
+            <a href="/swipe" class="button button-primary">Find Opportunities</a>
+            {% if session.get("is_admin") != 0 and session.get("is_admin") != None %}
+                <a href="/_admin_dashboard" class="button button-secondary">Admin Dashboard</a>
+            {% endif %}
+        </div>
     {% endif %}
 </section>
 
@@ -226,7 +231,12 @@
             <a href="/auth/login" class="button button-secondary">Sign In</a>
         </div>
     {% else %}
-        <a href="/swipe" class="button button-primary">Find Opportunities</a>
+        <div class="cta-buttons">
+            <a href="/swipe" class="button button-primary">Find Opportunities</a>
+            {% if session.get("is_admin") != 0 and session.get("is_admin") != None %}
+                <a href="/admin_dashboard" class="button button-secondary">Admin Dashboard</a>
+            {% endif %}
+        </div>
     {% endif %}
 </section>
 

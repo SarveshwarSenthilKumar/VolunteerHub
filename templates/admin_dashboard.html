@@ -155,12 +155,33 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        /* Home button styling to match other buttons */
+        .home-btn {
+            display: inline-block;
+            background: linear-gradient(90deg,#8b5cf6 0%,#a855f7 100%);
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.1em;
+            padding: 0.8em 2em;
+            border-radius: 1em;
+            text-decoration: none;
+            box-shadow: 0 2px 8px #8b5cf6a0;
+            transition: background 0.2s,box-shadow 0.2s;
+            margin-right: 1em;
+        }
+        
+        .home-btn:hover {
+            background: linear-gradient(90deg,#7c3aed 0%,#9333ea 100%);
+            box-shadow: 0 4px 12px #7c3aed80;
+        }
     </style>
 </head>
 <body>
     <div class="dashboard-container">
         <div class="dashboard-title">Executive Admin Dashboard</div>
         <div style="text-align:center;margin-bottom:2rem;">
+            <a href="/" class="home-btn">🏠 Back to Home</a>
             <a href="/admin/add-opportunity" style="display:inline-block;background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;font-weight:700;font-size:1.1em;padding:0.8em 2em;border-radius:1em;text-decoration:none;box-shadow:0 2px 8px #3b82f6a0;transition:background 0.2s,box-shadow 0.2s;">+ Add Opportunity</a>
             <a href="/admin/opportunities" style="display:inline-block;background:linear-gradient(90deg,#06b6d4 0%,#3b82f6 100%);color:#fff;font-weight:700;font-size:1.1em;padding:0.8em 2em;border-radius:1em;text-decoration:none;box-shadow:0 2px 8px #06b6d4a0;transition:background 0.2s,box-shadow 0.2s;margin-left:1em;">🔍 Manage Opportunities</a>
         </div>

@@ -3,7 +3,7 @@ import { Box, Typography, TextField, Button, Paper, Container, Alert } from '@mu
 import api from '../api';
 
 function Login() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -11,15 +11,16 @@ function Login() {
     e.preventDefault();
     setError('');
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { username, password });
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
+        // The admin cookie will be automatically set by the backend
         window.location.href = '/';
       } else {
         setError('Invalid response from server.');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed.');
+      setError(err.response?.data?.error || 'Login failed.');
     }
   };
 
@@ -32,12 +33,12 @@ function Login() {
         {error && <Alert severity="error">{error}</Alert>}
         <Box component="form" onSubmit={handleSubmit}>
           <TextField
-            label="Email"
-            type="email"
+            label="Username or Phone"
+            type="text"
             fullWidth
             margin="normal"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
           />
           <TextField
