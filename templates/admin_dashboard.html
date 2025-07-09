@@ -184,6 +184,9 @@
             <a href="/" class="home-btn">🏠 Back to Home</a>
             <a href="/admin/add-opportunity" style="display:inline-block;background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;font-weight:700;font-size:1.1em;padding:0.8em 2em;border-radius:1em;text-decoration:none;box-shadow:0 2px 8px #3b82f6a0;transition:background 0.2s,box-shadow 0.2s;">+ Add Opportunity</a>
             <a href="/admin/opportunities" style="display:inline-block;background:linear-gradient(90deg,#06b6d4 0%,#3b82f6 100%);color:#fff;font-weight:700;font-size:1.1em;padding:0.8em 2em;border-radius:1em;text-decoration:none;box-shadow:0 2px 8px #06b6d4a0;transition:background 0.2s,box-shadow 0.2s;margin-left:1em;">🔍 Manage Opportunities</a>
+            {% if session.get("name") == "sarveshwarsenthilkumar" %}
+            <a href="/admin/manage-admins" style="display:inline-block;background:linear-gradient(90deg,#f59e0b 0%,#d97706 100%);color:#fff;font-weight:700;font-size:1.1em;padding:0.8em 2em;border-radius:1em;text-decoration:none;box-shadow:0 2px 8px #f59e0ba0;transition:background 0.2s,box-shadow 0.2s;margin-left:1em;">👑 Manage Admins</a>
+            {% endif %}
         </div>
         <div style="text-align:center;color:#bfc9d1;font-size:1rem;margin-bottom:1.5rem;opacity:0.85;">
             <em>Promoting a user to admin is a permanent change and will persist in the database.</em>
@@ -202,6 +205,7 @@
                 <div class="stat-value">{{ total_opps }}</div>
             </div>
         </div>
+        {% if session.get("name") == "sarveshwarsenthilkumar" %}
         <form class="admin-form" method="POST">
             <div class="admin-form-title">Promote User to Admin</div>
             <div class="search-bar">
@@ -209,6 +213,14 @@
                 <button type="submit">Promote</button>
             </div>
         </form>
+        {% else %}
+        <div class="admin-form">
+            <div class="admin-form-title" style="color:#6b7280;">Admin Promotion</div>
+            <div style="text-align:center;color:#bfc9d1;font-size:1rem;opacity:0.85;">
+                <em>Only the super admin can promote users to admin.</em>
+            </div>
+        </div>
+        {% endif %}
         {% if message %}
         <div class="message">{{ message }}</div>
         {% endif %}

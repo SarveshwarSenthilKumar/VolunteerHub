@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Admins | VolunteerHub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(120deg, #0a0f1a 0%, #1a2233 100%);
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .dashboard-container {
+            max-width: 900px;
+            margin: 4rem auto 0 auto;
+            background: rgba(20,30,50,0.97);
+            border-radius: 2rem;
+            box-shadow: 0 8px 40px 0 rgba(59,130,246,0.18);
+            padding: 3rem 2.5rem 2.5rem 2.5rem;
+            position: relative;
+        }
+        .dashboard-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            text-align: center;
+            margin-bottom: 2.5rem;
+            background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stats-row {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+        .stat-card {
+            background: linear-gradient(120deg, #23272a 60%, #1e293b 100%);
+            border-radius: 1.2rem;
+            box-shadow: 0 4px 24px rgba(59,130,246,0.10);
+            padding: 2.2rem 2.5rem 1.5rem 2.5rem;
+            text-align: center;
+            min-width: 160px;
+            flex: 1;
+        }
+        .stat-label {
+            font-size: 1.1rem;
+            color: #bfc9d1;
+            margin-bottom: 0.7rem;
+            font-weight: 600;
+        }
+        .stat-value {
+            font-size: 2.7rem;
+            font-weight: 800;
+            color: #3b82f6;
+            letter-spacing: -2px;
+        }
+        .message {
+            margin: 1.5rem auto 0 auto;
+            max-width: 420px;
+            background: #23272a;
+            color: #fff;
+            border-radius: 0.7rem;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.07);
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(30,40,60,0.92);
+            border-radius: 1.2rem;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.10);
+            margin-top: 2rem;
+        }
+        .admin-table th {
+            background: linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);
+            color: #fff;
+            padding: 1rem 0.5rem;
+            text-align: left;
+        }
+        .admin-table td {
+            padding: 0.8rem 0.5rem;
+            border-bottom: 1px solid #23272a;
+        }
+        .admin-table tr:hover {
+            background: rgba(59,130,246,0.05);
+        }
+        .demote-btn {
+            background: linear-gradient(90deg,#ef4444 0%,#dc2626 100%);
+            color: #fff;
+            border: none;
+            border-radius: 1em;
+            padding: 0.4em 1.2em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .demote-btn:hover {
+            background: linear-gradient(90deg,#dc2626 0%,#b91c1c 100%);
+            transform: translateY(-1px);
+        }
+        .demote-btn:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .super-admin {
+            color: #fbbf24;
+            font-weight: 700;
+        }
+        .back-btn {
+            display: inline-block;
+            background: linear-gradient(90deg,#8b5cf6 0%,#a855f7 100%);
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.1em;
+            padding: 0.8em 2em;
+            border-radius: 1em;
+            text-decoration: none;
+            box-shadow: 0 2px 8px #8b5cf6a0;
+            transition: background 0.2s,box-shadow 0.2s;
+            margin-bottom: 2rem;
+        }
+        .back-btn:hover {
+            background: linear-gradient(90deg,#7c3aed 0%,#9333ea 100%);
+            box-shadow: 0 4px 12px #7c3aed80;
+        }
+        @media (max-width: 700px) {
+            .dashboard-container { padding: 1.2rem; }
+            .stats-row { flex-direction: column; gap: 1.2rem; }
+            .stat-card { min-width: 0; padding: 1.2rem 1rem; }
+            .admin-table { font-size: 0.9em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-title">Manage Admins</div>
+        
+        <div style="text-align:center;margin-bottom:2rem;">
+            <a href="/_admin_dashboard" class="back-btn">🏠 Back to Admin Dashboard</a>
+        </div>
+        
+        <div style="text-align:center;color:#bfc9d1;font-size:1rem;margin-bottom:1.5rem;opacity:0.85;">
+            <em>⚠️ Only the super admin (sarveshwarsenthilkumar) can manage admin privileges.</em>
+        </div>
+        
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">Total Admins</div>
+                <div class="stat-value">{{ admins|length }}</div>
+            </div>
+        </div>
+        
+        {% if message %}
+        <div class="message">{{ message }}</div>
+        {% endif %}
+        
+        <div style="overflow-x:auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Location</th>
+                        <th>Date Joined</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for admin in admins %}
+                    <tr>
+                        <td style="font-weight:600;">{{ admin.username }}</td>
+                        <td>{{ admin.name }}</td>
+                        <td>{{ admin.emailAddress }}</td>
+                        <td>{{ admin.city }}, {{ admin.state }}</td>
+                        <td>{{ admin.dateJoined }}</td>
+                        <td>
+                            {% if admin.username == "sarveshwarsenthilkumar" %}
+                                <span class="super-admin">👑 Super Admin</span>
+                            {% else %}
+                                <span style="color:#3b82f6;font-weight:700;">Admin</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if admin.username != "sarveshwarsenthilkumar" %}
+                                <form method="POST" style="display:inline;">
+                                    <input type="hidden" name="demote_username" value="{{ admin.username }}">
+                                    <button type="submit" class="demote-btn" onclick="return confirm('Are you sure you want to demote {{ admin.username }} from admin?')">
+                                        🗑️ Demote
+                                    </button>
+                                </form>
+                            {% else %}
+                                <button class="demote-btn" disabled>Protected</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if admins|length == 0 %}
+        <div style="text-align:center;color:#bfc9d1;font-size:1.1rem;margin-top:2rem;">
+            No admins found.
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html> 

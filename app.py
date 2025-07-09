@@ -931,19 +931,23 @@ def admin_dashboard():
         user_connection.close()
         return "Access denied", 403
 
-    # Handle admin promotion (persistent)
+    # Handle admin promotion (only sarveshwarsenthilkumar can promote)
     message = None
     if request.method == "POST" and "promote_username" in request.form:
-        promote_username = request.form.get("promote_username", "").strip()
-        if promote_username:
-            user_crsr.execute("SELECT * FROM users WHERE username = ?", (promote_username,))
-            promote_user = user_crsr.fetchone()
-            if promote_user:
-                user_crsr.execute("UPDATE users SET is_admin = 1 WHERE username = ?", (promote_username,))
-                user_connection.commit()
-                message = f"User '{promote_username}' is now an admin."
-            else:
-                message = f"User '{promote_username}' not found."
+        # Only sarveshwarsenthilkumar can promote users to admin
+        if session.get("name") != "sarveshwarsenthilkumar":
+            message = "Only the super admin can promote users to admin."
+        else:
+            promote_username = request.form.get("promote_username", "").strip()
+            if promote_username:
+                user_crsr.execute("SELECT * FROM users WHERE username = ?", (promote_username,))
+                promote_user = user_crsr.fetchone()
+                if promote_user:
+                    user_crsr.execute("UPDATE users SET is_admin = 1 WHERE username = ?", (promote_username,))
+                    user_connection.commit()
+                    message = f"User '{promote_username}' is now an admin."
+                else:
+                    message = f"User '{promote_username}' not found."
 
     # User search logic
     search_query = request.args.get("search", "").strip()
@@ -1500,6 +1504,40 @@ def reset_users_db():
         
     except Exception as e:
         return jsonify({'success': False, 'error': f'Database reset failed: {str(e)}'}), 500
+
+@app.route('/admin/manage-admins', methods=['GET', 'POST'])
+def manage_admins():
+    # Only sarveshwarsenthilkumar can access this page
+    if session.get('name') != 'sarveshwarsenthilkumar':
+        return redirect('/auth/login')
+    
+    message = None
+    user_connection = sqlite3.connect('users.db')
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    
+    # Handle admin demotion
+    if request.method == "POST" and "demote_username" in request.form:
+        demote_username = request.form.get("demote_username", "").strip()
+        if demote_username and demote_username != "sarveshwarsenthilkumar":  # Cannot demote super admin
+            user_crsr.execute("SELECT * FROM users WHERE username = ? AND is_admin = 1", (demote_username,))
+            demote_user = user_crsr.fetchone()
+            if demote_user:
+                user_crsr.execute("UPDATE users SET is_admin = 0 WHERE username = ?", (demote_username,))
+                user_connection.commit()
+                message = f"User '{demote_username}' has been demoted from admin."
+            else:
+                message = f"User '{demote_username}' not found or not an admin."
+        elif demote_username == "sarveshwarsenthilkumar":
+            message = "Cannot demote the super admin."
+    
+    # Get all admins
+    user_crsr.execute("SELECT id, username, name, emailAddress, city, state, dateJoined, is_admin FROM users WHERE is_admin = 1 ORDER BY username")
+    admins = [dict(row) for row in user_crsr.fetchall()]
+    
+    user_connection.close()
+    
+    return render_template('manage_admins.html', admins=admins, message=message)
 
 # Initialize database tables if they don't exist
 init_db()
