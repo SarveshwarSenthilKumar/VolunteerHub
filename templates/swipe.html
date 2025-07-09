@@ -635,7 +635,9 @@ document.addEventListener('DOMContentLoaded', function() {
         desc.style.cursor = 'pointer';
         desc.addEventListener('click', function(e) {
             const text = desc.textContent;
-            document.getElementById('desc-modal-text').textContent = text;
+            const modalText = document.getElementById('desc-modal-text');
+            modalText.textContent = text;
+            modalText.style.color = '#fff'; // Set text color to white
             document.getElementById('desc-modal').style.display = 'block';
             document.getElementById('desc-modal-overlay').style.display = 'block';
         });

@@ -1345,20 +1345,41 @@ def admin_opportunities():
     user_connection.close()
     message = request.args.get('message')
     search = request.args.get('search', '').strip()
+    selected_city = request.args.get('city', '').strip()
+    selected_organization = request.args.get('organization', '').strip()
+    page = int(request.args.get('page', 1))
+    per_page = 50
+    offset = (page - 1) * per_page
     conn = sqlite3.connect('opportunities.db')
     conn.row_factory = sqlite3.Row
     crsr = conn.cursor()
+    # Get unique cities and organizations for filters
+    crsr.execute('SELECT DISTINCT city FROM opportunities ORDER BY city ASC')
+    cities = [row['city'] for row in crsr.fetchall() if row['city']]
+    crsr.execute('SELECT DISTINCT organization_name FROM opportunities ORDER BY organization_name ASC')
+    organizations = [row['organization_name'] for row in crsr.fetchall() if row['organization_name']]
+    # Build filter query
+    filters = []
+    params = []
     if search:
-        crsr.execute("""
-            SELECT * FROM opportunities WHERE 
-            title LIKE ? OR organization_name LIKE ? OR city LIKE ?
-            ORDER BY created_at DESC
-        """, (f'%{search}%', f'%{search}%', f'%{search}%'))
-    else:
-        crsr.execute("SELECT * FROM opportunities ORDER BY created_at DESC LIMIT 50")
+        filters.append('(title LIKE ? OR organization_name LIKE ? OR city LIKE ?)')
+        params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
+    if selected_city:
+        filters.append('city = ?')
+        params.append(selected_city)
+    if selected_organization:
+        filters.append('organization_name = ?')
+        params.append(selected_organization)
+    where_clause = 'WHERE ' + ' AND '.join(filters) if filters else ''
+    # Count total
+    crsr.execute(f'SELECT COUNT(*) FROM opportunities {where_clause}', params)
+    total = crsr.fetchone()[0]
+    # Fetch paged results
+    crsr.execute(f'SELECT * FROM opportunities {where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?', params + [per_page, offset])
     opportunities = [dict(row) for row in crsr.fetchall()]
     conn.close()
-    return render_template('admin_opportunities.html', opportunities=opportunities, search=search, message=message)
+    total_pages = (total + per_page - 1) // per_page
+    return render_template('admin_opportunities.html', opportunities=opportunities, search=search, message=message, page=page, total_pages=total_pages, cities=cities, organizations=organizations, selected_city=selected_city, selected_organization=selected_organization)
 
 @app.route('/admin/delete-opportunity/<int:opp_id>', methods=['POST'])
 def admin_delete_opportunity(opp_id):

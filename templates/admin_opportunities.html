@@ -1,490 +1,237 @@
 {% extends "base.html" %}
 
-{% block title %}Find Opportunities - VolunteerHub{% endblock %}
+{% block title %}Manage Opportunities - Admin | VolunteerHub{% endblock %}
 
 {% block extra_css %}
 <style>
-    .swipe-container {
-        max-width: 500px;
-        margin: 2rem auto;
-        position: relative;
-        height: 400px;
+.admin-table-container {
+    max-width: 1100px;
+    margin: 2rem auto;
+    background: var(--bg-secondary);
+    border-radius: 1.2rem;
+    box-shadow: 0 4px 24px rgba(59,130,246,0.10);
+    padding: 2rem 2rem 1.5rem 2rem;
+}
+.admin-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.admin-table-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+.admin-table-header .add-btn {
+    background: var(--accent-primary);
+    color: #fff;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.7rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.admin-table-header .add-btn:hover {
+    background: var(--accent-secondary);
+}
+.admin-search-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+}
+.admin-search-bar input[type="text"] {
+    padding: 0.6rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #334155;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    width: 260px;
+    transition: border 0.2s;
+}
+.admin-search-bar input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+.admin-search-bar select {
+    padding: 0.6rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #334155;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+.admin-search-bar button {
+    background: var(--accent-primary);
+    color: #fff;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.admin-search-bar button:hover {
+    background: var(--accent-secondary);
+}
+table.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: transparent;
+}
+table.admin-table th, table.admin-table td {
+    padding: 0.7rem 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid #334155;
+    font-size: 1rem;
+}
+table.admin-table th {
+    color: var(--accent-primary);
+    font-weight: 700;
+    background: var(--bg-primary);
+}
+table.admin-table td {
+    color: var(--text-primary);
+    vertical-align: top;
+}
+table.admin-table td.actions {
+    min-width: 120px;
+}
+.admin-action-btn {
+    background: none;
+    border: none;
+    color: var(--accent-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-right: 0.7rem;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.admin-action-btn.delete {
+    color: var(--error);
+}
+.admin-action-btn.edit {
+    color: var(--accent-primary);
+}
+.admin-action-btn:hover {
+    text-decoration: underline;
+}
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 1.5rem;
+    gap: 0.5rem;
+}
+.pagination-btn {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 0.4rem;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.pagination-btn.active, .pagination-btn:hover {
+    background: var(--accent-primary);
+    color: #fff;
+}
+@media (max-width: 700px) {
+    .admin-table-container {
+        padding: 1rem 0.2rem;
     }
-    .flip-card {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        perspective: 1000px;
-        user-select: none;
-        touch-action: pan-x;
-        z-index: 1;
-        transition: box-shadow 0.2s;
+    table.admin-table th, table.admin-table td {
+        font-size: 0.95rem;
+        padding: 0.5rem 0.2rem;
     }
-    .flip-card.active {
-        z-index: 2;
-        box-shadow: 0 8px 32px rgba(59,130,246,0.25);
+    .admin-table-header h1 {
+        font-size: 1.3rem;
     }
-    .flip-card-inner {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        text-align: left;
-        transition: transform 0.6s;
-        transform-style: preserve-3d;
+    .admin-search-bar input[type="text"] {
+        width: 120px;
     }
-    .flip-card-front, .flip-card-back {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        backface-visibility: hidden;
-        background-color: var(--bg-secondary);
-        border-radius: 1.5rem;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-        padding: 2rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    .flip-card-front {
-        z-index: 2;
-    }
-    .flip-card-back {
-        transform: rotateY(180deg);
-        z-index: 3;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-    }
-    .opportunity-title {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 0.5rem;
-    }
-    .organization {
-        color: var(--accent-primary);
-        font-weight: 500;
-        margin-bottom: 0.5rem;
-    }
-    .description {
-        color: var(--text-secondary);
-        margin-bottom: 1rem;
-        flex-grow: 1;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-    .details {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    .detail {
-        background-color: var(--bg-primary);
-        padding: 0.5rem 1rem;
-        border-radius: 2rem;
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-    }
-    .action-buttons {
-        display: flex;
-        justify-content: center;
-        gap: 1.5rem;
-        margin-top: auto;
-    }
-    .action-button {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .action-button:hover {
-        transform: scale(1.1);
-    }
-    .action-button.dislike {
-        background-color: var(--error);
-        color: white;
-    }
-    .action-button.flip {
-        background-color: var(--accent-primary);
-        color: white;
-    }
-    .action-button.like {
-        background-color: var(--success);
-        color: white;
-    }
-    .swipe-indicator {
-        position: absolute;
-        top: 30px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 2rem;
-        font-weight: bold;
-        opacity: 0.15;
-        pointer-events: none;
-        z-index: 10;
-    }
-    .flip-btn { display: none; }
-    .no-opportunities {
-        text-align: center;
-        padding: 3rem;
-        background-color: var(--bg-secondary);
-        border-radius: 1.5rem;
-        margin: 2rem auto;
-        max-width: 500px;
-    }
-    .no-opportunities h2 {
-        margin-bottom: 1rem;
-    }
-    .no-opportunities p {
-        color: var(--text-secondary);
-        margin-bottom: 2rem;
-    }
-    .loading {
-        text-align: center;
-        padding: 3rem;
-        color: var(--text-secondary);
-    }
-    .loading::after {
-        content: "...";
-        animation: dots 1.5s infinite;
-    }
-    @keyframes dots {
-        0%, 20% { content: "."; }
-        40% { content: ".."; }
-        60%, 100% { content: "..."; }
-    }
-    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
-    #ai-email-modal::-webkit-scrollbar { display: none; }
-    @media (max-width: 600px) {
-        .swipe-container {
-            width: 98vw;
-            max-width: 100vw;
-            height: 80vh;
-            min-height: 420px;
-            margin: 1rem auto;
-        }
-        .flip-card {
-            width: 98vw;
-            height: 80vh;
-            min-height: 420px;
-            border-radius: 2.2rem;
-        }
-        .flip-card-front, .flip-card-back {
-            padding: 1.2rem 0.7rem;
-            border-radius: 2.2rem;
-        }
-        .opportunity-title {
-            font-size: 2.1rem;
-        }
-        .organization {
-            font-size: 1.2rem;
-        }
-        .description {
-            font-size: 1.1rem;
-            -webkit-line-clamp: 5;
-        }
-        .action-buttons {
-            gap: 2.2rem;
-        }
-        .action-button {
-            width: 80px;
-            height: 80px;
-            font-size: 2.2rem;
-        }
-    }
-    @media (max-width: 400px) {
-        .swipe-container, .flip-card {
-            width: 100vw;
-            height: 75vh;
-            min-height: 320px;
-        }
-        .opportunity-title {
-            font-size: 1.3rem;
-        }
-        .action-button {
-            width: 60px;
-            height: 60px;
-            font-size: 1.5rem;
-        }
-    }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="swipe-container">
-    {% if error_message %}
-    <div style="background:#fbbf24;color:#23272a;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;font-weight:700;">
-        {{ error_message }}
+<div class="admin-table-container">
+    <div class="admin-table-header">
+        <h1>Manage Opportunities</h1>
+        <a href="/admin/add-opportunity" class="add-btn">+ Add Opportunity</a>
     </div>
+    <form class="admin-search-bar" method="get" action="">
+        <input type="text" name="search" placeholder="Search title, organization, or city" value="{{ search or '' }}" />
+        <select name="city">
+            <option value="">All Cities</option>
+            {% for city in cities %}
+            <option value="{{ city }}" {% if city == selected_city %}selected{% endif %}>{{ city }}</option>
+            {% endfor %}
+        </select>
+        <select name="organization">
+            <option value="">All Organizations</option>
+            {% for org in organizations %}
+            <option value="{{ org }}" {% if org == selected_organization %}selected{% endif %}>{{ org }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Search</button>
+    </form>
+    {% if message %}
+    <div class="success" style="margin-bottom:1rem;">{{ message }}</div>
     {% endif %}
-    {% if randomized %}
-    <div class="randomized-message" style="background:#23272a;color:#fbbf24;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;">
-        Opportunities are shown in random order. Add your skills/interests in your <a href="/profile" style="color:#3b82f6;text-decoration:underline;">profile</a> for personalized matches!
-    </div>
-    {% endif %}
-    {% if opportunities %}
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Organization</th>
+                <th>City</th>
+                <th>Location</th>
+                <th>Volunteers Needed</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
         {% for opportunity in opportunities %}
-        <div class="flip-card" id="card-{{ loop.index0 }}" data-index="{{ loop.index0 }}" data-opportunity-id="{{ opportunity.id }}" {% if not loop.first %}style="display: none;"{% endif %}>
-            <div class="flip-card-inner">
-                <div class="flip-card-front">
-                    <div class="opportunity-title">{{ opportunity.organization_name }}</div>
-                    <div class="organization">{{ opportunity.organization_name }}</div>
-                    <div class="description">{{ opportunity.description }}</div>
-                    <div class="details">
-                        <div class="detail">📍 {{ opportunity.city }}</div>
-                        <div class="detail">{{ opportunity.location }}</div>
-                    </div>
-                    <div class="action-buttons">
-                        <button class="action-button dislike" onclick="handleAction('dislike', {{ loop.index0 }})">✕</button>
-                        <button class="action-button flip" onclick="flipCard({{ loop.index0 }})">🔄</button>
-                        <button class="action-button like" onclick="handleAction('like', {{ loop.index0 }})">✓</button>
-                    </div>
-                </div>
-                <div class="flip-card-back">
-                    <div class="opportunity-title">Additional Details</div>
-                    <div class="description">{{ opportunity.description }}</div>
-                    <div class="details">
-                        <div class="detail">📍 {{ opportunity.city }}</div>
-                        <div class="detail">{{ opportunity.location }}</div>
-                        <div class="detail">⏰ {{ opportunity.duration }}</div>
-                        <div class="detail">👥 {{ opportunity.volunteers_needed }} needed</div>
-                    </div>
-                    {% if opportunity.apply_link %}
-                    <a href="{{ opportunity.apply_link }}" class="button button-primary" target="_blank" style="margin: 1rem 0;">Apply Now</a>
-                    {% endif %}
-                    <div class="action-buttons">
-                        <button class="action-button dislike" onclick="handleAction('dislike', {{ loop.index0 }})">✕</button>
-                        <button class="action-button flip" onclick="flipCard({{ loop.index0 }})">🔄</button>
-                        <button class="action-button like" onclick="handleAction('like', {{ loop.index0 }})">✓</button>
-                    </div>
-                </div>
-            </div>
-            <div class="swipe-indicator" id="indicator-{{ loop.index0 }}"></div>
-        </div>
+            <tr>
+                <td>{{ opportunity.id }}</td>
+                <td>{{ opportunity.title }}</td>
+                <td>{{ opportunity.organization_name }}</td>
+                <td>{{ opportunity.city }}</td>
+                <td>{{ opportunity.location }}</td>
+                <td>{{ opportunity.volunteers_needed or '' }}</td>
+                <td>{{ opportunity.created_at }}</td>
+                <td class="actions">
+                    <a href="/admin/edit-opportunity/{{ opportunity.id }}" class="admin-action-btn edit">Edit</a>
+                    <form method="POST" action="/admin/delete-opportunity/{{ opportunity.id }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this opportunity?');">
+                        <button type="submit" class="admin-action-btn delete">Delete</button>
+                    </form>
+                </td>
+            </tr>
         {% endfor %}
-    {% else %}
-        <div class="no-opportunities">
-            <h2>No More Opportunities</h2>
-            <p>We couldn't find any more volunteer opportunities matching your preferences.</p>
-            <a href="/opportunities" class="button button-primary">Search Again</a>
-        </div>
+        </tbody>
+    </table>
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+        <a href="?page={{ page - 1 }}" class="pagination-btn">&laquo; Prev</a>
+        {% endif %}
+        {% for p in range(1, total_pages + 1) %}
+        <a href="?page={{ p }}" class="pagination-btn{% if p == page %} active{% endif %}">{{ p }}</a>
+        {% endfor %}
+        {% if page < total_pages %}
+        <a href="?page={{ page + 1 }}" class="pagination-btn">Next &raquo;</a>
+        {% endif %}
+    </div>
     {% endif %}
 </div>
-
-<!-- AI Email Modal -->
-<div id="ai-email-modal" style="display:none;position:fixed;z-index:10000;top:0;left:0;width:100vw;height:100vh;background:rgba(24,26,27,0.92);backdrop-filter:blur(2px);align-items:center;justify-content:center;">
-    <div id="ai-email-modal-content" style="background:#23272a;border-radius:1.5rem;max-width:540px;width:90vw;padding:2.5rem 2rem;box-shadow:0 8px 32px rgba(59,130,246,0.18);position:relative;display:flex;flex-direction:column;align-items:stretch;">
-        <button onclick="closeEmailModal()" style="position:absolute;top:1.2rem;right:1.5rem;background:none;border:none;font-size:1.5rem;color:#fff;cursor:pointer;">&times;</button>
-        <h2 style="color:#3b82f6;font-size:1.4rem;font-weight:700;margin-bottom:1.2rem;text-align:center;">AI-Generated Email</h2>
-        <div id="ai-email-loading" style="display:none;text-align:center;margin:2rem 0;">
-            <div class="spinner" style="margin:0 auto 1rem auto;width:48px;height:48px;border:5px solid #3b82f6;border-top:5px solid #23272a;border-radius:50%;animation:spin 1s linear infinite;"></div>
-            <div style="color:#bfc9d1;">Generating your personalized email...</div>
-        </div>
-        <div id="ai-email-content" style="display:none;background:#181a1b;border-radius:1rem;padding:1.2rem 1rem;color:#e0e0e0;font-size:1.08em;line-height:1.7;white-space:pre-line;box-shadow:0 2px 8px rgba(59,130,246,0.07);margin-bottom:1.2rem;"></div>
-        <button id="copy-email-btn" style="display:none;background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;border:none;border-radius:1rem;padding:0.7rem 1.5rem;font-size:1em;font-weight:600;cursor:pointer;transition:background 0.2s;align-self:center;">Copy Email</button>
-    </div>
-</div>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// --- Swipe/Drag/Keyboard Logic ---
-let current = 0;
-const cards = Array.from(document.querySelectorAll('.flip-card'));
-
-// Background fetch for new opportunities on page load
-window.addEventListener('DOMContentLoaded', function() {
-    fetch('/fetch_opportunities_background', { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success && data.inserted_count > 0) {
-                console.log(`Background: Added ${data.inserted_count} new opportunities.`);
-            }
-        });
-});
-
-function showCard(idx) {
-    cards.forEach((c, i) => {
-        c.style.display = i === idx ? 'flex' : 'none';
-        c.classList.remove('active');
-    });
-    if (cards[idx]) cards[idx].classList.add('active');
-}
-
-function flipCard(index) {
-    const card = document.getElementById(`card-${index}`);
-    card.querySelector('.flip-card-inner').style.transform = 
-        card.querySelector('.flip-card-inner').style.transform === 'rotateY(180deg)' 
-            ? '' 
-            : 'rotateY(180deg)';
-}
-
-function handleAction(action, index) {
-    const card = document.getElementById(`card-${index}`);
-    const nextCard = document.getElementById(`card-${index + 1}`);
-    const opportunityId = card.getAttribute('data-opportunity-id');
-    
-    // If it's a like action, save the opportunity
-    if (action === 'like') {
-        fetch('/swipe_action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                action: 'save', 
-                opportunity_id: opportunityId 
-            })
-        });
-    }
-    
-    // Record the swipe action
-    fetch('/swipe_action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            action: action, 
-            opportunity_id: opportunityId 
-        })
-    });
-    
-    card.style.transition = 'transform 0.3s, opacity 0.3s';
-    if (action === 'like') card.style.transform = 'translateX(100vw) rotate(15deg)';
-    else if (action === 'dislike') card.style.transform = 'translateX(-100vw) rotate(-15deg)';
-    card.style.opacity = '0';
-    
-    setTimeout(() => {
-        card.style.display = 'none';
-        if (nextCard) {
-            nextCard.style.display = 'flex';
-            nextCard.classList.add('active');
-            current = index + 1;
-        } else {
-            // If this was the last card, trigger background fetch
-            fetch('/fetch_opportunities_background', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.inserted_count > 0) {
-                        console.log(`Background: Added ${data.inserted_count} new opportunities.`);
-                    }
-                });
-            window.location.reload();
-        }
-    }, 300);
-}
-
-// Drag logic
-let dragStartX = null;
-let dragCard = null;
-let dragIndex = null;
-let indicator = null;
-
-function onDragStart(e) {
-    dragCard = e.currentTarget;
-    dragIndex = parseInt(dragCard.dataset.index);
-    dragStartX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
-    indicator = document.getElementById(`indicator-${dragIndex}`);
-    dragCard.style.transition = 'none';
-}
-function onDragMove(e) {
-    if (dragCard === null) return;
-    const x = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
-    const dx = x - dragStartX;
-    dragCard.style.transform = `translateX(${dx}px) rotate(${dx/20}deg)`;
-    if (indicator) {
-        indicator.textContent = dx > 60 ? 'Good ✓' : dx < -60 ? 'Pass ✕' : '';
-        indicator.style.opacity = Math.min(Math.abs(dx)/100, 0.7);
-    }
-}
-function onDragEnd(e) {
-    if (dragCard === null) return;
-    const x = e.type.startsWith('touch') ? (e.changedTouches[0]?.clientX ?? 0) : e.clientX;
-    const dx = x - dragStartX;
-    if (dx > 100) {
-        handleAction('like', dragIndex);
-    } else if (dx < -100) {
-        handleAction('dislike', dragIndex);
-    } else {
-        dragCard.style.transition = 'transform 0.3s';
-        dragCard.style.transform = '';
-        if (indicator) indicator.textContent = '';
-    }
-    dragCard = null;
-    dragStartX = null;
-    dragIndex = null;
-    indicator = null;
-}
-cards.forEach((card) => {
-    card.addEventListener('mousedown', onDragStart);
-    card.addEventListener('touchstart', onDragStart);
-    window.addEventListener('mousemove', onDragMove);
-    window.addEventListener('touchmove', onDragMove);
-    window.addEventListener('mouseup', onDragEnd);
-    window.addEventListener('touchend', onDragEnd);
-});
-
-// Keyboard support
-window.addEventListener('keydown', function(e) {
-    if (!cards[current]) return;
-    if (e.key === 'ArrowLeft') {
-        handleAction('dislike', current);
-    } else if (e.key === 'ArrowRight') {
-        handleAction('like', current);
-    }
-});
-
-showCard(0);
-
-function openEmailModal(opportunity) {
-    const modal = document.getElementById('ai-email-modal');
-    const content = document.getElementById('ai-email-content');
-    const loading = document.getElementById('ai-email-loading');
-    const copyBtn = document.getElementById('copy-email-btn');
-    modal.style.display = 'flex';
-    content.style.display = 'none';
-    copyBtn.style.display = 'none';
-    loading.style.display = 'block';
-    // Fetch AI email
-    fetch('/generate-ai-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opportunity: opportunity })
-    })
-    .then(res => res.json())
-    .then(data => {
-        loading.style.display = 'none';
-        if (data && data.email) {
-            content.textContent = data.email;
-            content.style.display = 'block';
-            copyBtn.style.display = 'inline-block';
-        } else {
-            content.textContent = data.error || 'Failed to generate email.';
-            content.style.display = 'block';
-        }
-    })
-    .catch(() => {
-        loading.style.display = 'none';
-        content.textContent = 'Failed to generate email.';
-        content.style.display = 'block';
-    });
-}
-function closeEmailModal() {
-    document.getElementById('ai-email-modal').style.display = 'none';
-}
-document.getElementById('copy-email-btn').onclick = function() {
-    const content = document.getElementById('ai-email-content');
-    navigator.clipboard.writeText(content.textContent);
-    this.textContent = 'Copied!';
-    setTimeout(() => { this.textContent = 'Copy Email'; }, 1500);
-};
-</script>
 {% endblock %} 
