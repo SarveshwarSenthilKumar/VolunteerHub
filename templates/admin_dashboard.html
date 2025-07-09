@@ -212,6 +212,20 @@
         {% if message %}
         <div class="message">{{ message }}</div>
         {% endif %}
+        
+        <!-- Special Database Reset Section for sarveshwarsenthilkumar -->
+        {% if session.get("name") == "sarveshwarsenthilkumar" %}
+        <div class="dashboard-container" style="margin-top:2.5rem;max-width:700px;border:2px solid #ef4444;">
+            <div class="dashboard-title" style="font-size:2rem;margin-bottom:1.5rem;color:#ef4444;">⚠️ Database Management</div>
+            <div style="text-align:center;color:#bfc9d1;font-size:1rem;margin-bottom:1.5rem;opacity:0.85;">
+                <em>⚠️ WARNING: These actions will permanently delete all data and cannot be undone!</em>
+            </div>
+            <div style="text-align:center;margin-bottom:2rem;">
+                <button onclick="confirmReset('opportunities')" style="display:inline-block;background:linear-gradient(90deg,#ef4444 0%,#dc2626 100%);color:#fff;font-weight:700;font-size:1.1em;padding:0.8em 2em;border-radius:1em;text-decoration:none;box-shadow:0 2px 8px #ef4444a0;transition:background 0.2s,box-shadow 0.2s;border:none;cursor:pointer;margin-right:1em;">🗑️ Reset Opportunities DB</button>
+                <button onclick="confirmReset('users')" style="display:inline-block;background:linear-gradient(90deg,#dc2626 0%,#b91c1c 100%);color:#fff;font-weight:700;font-size:1.1em;padding:0.8em 2em;border-radius:1em;text-decoration:none;box-shadow:0 2px 8px #dc2626a0;transition:background 0.2s,box-shadow 0.2s;border:none;cursor:pointer;">👥 Reset Users DB</button>
+            </div>
+        </div>
+        {% endif %}
     </div>
     <!-- User Management Section -->
     <div class="dashboard-container" style="margin-top:2.5rem;max-width:900px;">
@@ -283,6 +297,37 @@
             document.querySelectorAll('.dropdown-content').forEach(function(el) { el.style.display = 'none'; });
         }
     });
+    
+    function confirmReset(databaseType) {
+        const dbName = databaseType === 'opportunities' ? 'Opportunities' : 'Users';
+        const confirmMessage = `⚠️ WARNING: This will permanently delete ALL ${dbName} data!\n\nThis action cannot be undone. Are you absolutely sure you want to proceed?`;
+        
+        if (confirm(confirmMessage)) {
+            const secondConfirm = confirm(`FINAL WARNING: You are about to delete the entire ${dbName} database. This will remove ALL ${databaseType} data permanently.\n\nType 'YES' to confirm:`) && prompt("Type 'YES' to confirm:") === 'YES';
+            
+            if (secondConfirm) {
+                // Send the reset request to Flask backend
+                fetch(`/admin/reset-${databaseType}-db`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`✅ ${dbName} database has been reset successfully!`);
+                        location.reload();
+                    } else {
+                        alert(`❌ Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    alert(`❌ Error: ${error.message}`);
+                });
+            }
+        }
+    }
     </script>
 </body>
 </html> 

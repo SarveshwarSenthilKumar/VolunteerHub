@@ -1402,6 +1402,105 @@ def admin_delete_opportunity(opp_id):
     conn.close()
     return redirect(url_for('admin_opportunities', message='Opportunity deleted.'))
 
+@app.route('/admin/reset-opportunities-db', methods=['POST'])
+def reset_opportunities_db():
+    # Check if user is sarveshwarsenthilkumar
+    if session.get('name') != 'sarveshwarsenthilkumar':
+        return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
+    
+    try:
+        # Delete the opportunities database file
+        if os.path.exists('opportunities.db'):
+            os.remove('opportunities.db')
+        
+        # Recreate the database with the correct schema
+        conn = sqlite3.connect('opportunities.db')
+        cursor = conn.cursor()
+        
+        # Create the opportunities table with the correct schema
+        cursor.execute('''
+            CREATE TABLE opportunities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                organization_name TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                location TEXT NOT NULL,
+                city TEXT NOT NULL,
+                state TEXT NOT NULL,
+                duration TEXT,
+                volunteers_needed INTEGER,
+                contact_info TEXT,
+                apply_link TEXT,
+                created_at TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL
+            )
+        ''')
+        
+        # Create the user_opportunities table
+        cursor.execute('''
+            CREATE TABLE user_opportunities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                opportunity_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (opportunity_id) REFERENCES opportunities(id)
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Opportunities database reset successfully'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Database reset failed: {str(e)}'}), 500
+
+@app.route('/admin/reset-users-db', methods=['POST'])
+def reset_users_db():
+    # Check if user is sarveshwarsenthilkumar
+    if session.get('name') != 'sarveshwarsenthilkumar':
+        return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
+    
+    try:
+        # Delete the users database file
+        if os.path.exists('users.db'):
+            os.remove('users.db')
+        
+        # Recreate the database with the correct schema
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        
+        # Create the users table with the correct schema
+        cursor.execute('''
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                password TEXT NOT NULL,
+                emailAddress TEXT NOT NULL,
+                name TEXT NOT NULL,
+                city TEXT NOT NULL,
+                state TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                dateJoined TEXT NOT NULL,
+                saved_opportunities TEXT DEFAULT '[]',
+                is_admin INTEGER DEFAULT 0,
+                resume BLOB,
+                skills TEXT DEFAULT '',
+                birthday TEXT
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Users database reset successfully'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Database reset failed: {str(e)}'}), 500
+
 # Initialize database tables if they don't exist
 init_db()
 
