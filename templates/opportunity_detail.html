@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VolunteerHub | {{ opportunity.title }}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0f1a 0%, #1a2332 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .back-btn {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            background: rgba(37,99,235,0.95);
+            color: #fff;
+            border: none;
+            border-radius: 1.5rem;
+            padding: 0.7rem 1.7rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.13);
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .back-btn:hover {
+            background: #2563eb;
+            color: #fff;
+        }
+        .opportunity-card {
+            background: rgba(30,40,60,0.8);
+            border-radius: 2rem;
+            padding: 3rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(59,130,246,0.15);
+            border: 1px solid rgba(59,130,246,0.1);
+        }
+        .opportunity-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #3b82f6;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .organization-name {
+            font-size: 1.3rem;
+            color: #60a5fa;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+        .opportunity-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .detail-section {
+            background: rgba(20,30,50,0.5);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(59,130,246,0.1);
+        }
+        .detail-section h3 {
+            color: #3b82f6;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+        .detail-section p {
+            color: #bfc9d1;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .description {
+            background: rgba(20,30,50,0.5);
+            padding: 2rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(59,130,246,0.1);
+        }
+        .description h3 {
+            color: #3b82f6;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+        .description p {
+            color: #bfc9d1;
+            line-height: 1.8;
+            font-size: 1.1rem;
+        }
+        .ai-email-section {
+            background: rgba(20,30,50,0.5);
+            padding: 2rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(59,130,246,0.1);
+        }
+        .ai-email-section h3 {
+            color: #3b82f6;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .ai-icon {
+            width: 24px;
+            height: 24px;
+            background: #3b82f6;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .email-content {
+            background: rgba(15,25,40,0.8);
+            padding: 2rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(59,130,246,0.2);
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            color: #e2e8f0;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            overflow-x: auto;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(59,130,246,0.3);
+        }
+        .btn-secondary {
+            background: rgba(59,130,246,0.1);
+            color: #3b82f6;
+            border: 2px solid #3b82f6;
+        }
+        .btn-secondary:hover {
+            background: #3b82f6;
+            color: #fff;
+            transform: translateY(-2px);
+        }
+        .copy-btn {
+            background: #10b981;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-left: 1rem;
+        }
+        .copy-btn:hover {
+            background: #059669;
+        }
+        .success-message {
+            background: #10b981;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            margin-left: 1rem;
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            .opportunity-title {
+                font-size: 2rem;
+            }
+            .opportunity-details {
+                grid-template-columns: 1fr;
+            }
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            .back-btn {
+                position: relative;
+                top: auto;
+                left: auto;
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="javascript:history.back()" class="back-btn">&larr; Back</a>
+        
+        <div class="header">
+            <h1 class="opportunity-title">{{ opportunity.title }}</h1>
+            <p class="organization-name">{{ opportunity.organization_name }}</p>
+        </div>
+        
+        <div class="opportunity-card">
+            <div class="opportunity-details">
+                <div class="detail-section">
+                    <h3>📍 Location</h3>
+                    <p>{{ opportunity.location }}</p>
+                </div>
+                <div class="detail-section">
+                    <h3>🏢 Organization</h3>
+                    <p>{{ opportunity.organization_name }}</p>
+                </div>
+                <div class="detail-section">
+                    <h3>📅 Posted</h3>
+                    <p>{{ opportunity.created_at.split(' ')[0] if opportunity.created_at else 'Recently' }}</p>
+                </div>
+                <div class="detail-section">
+                    <h3>🔗 Apply Link</h3>
+                    <p><a href="{{ opportunity.apply_link }}" target="_blank" style="color: #3b82f6; text-decoration: underline;">{{ opportunity.apply_link }}</a></p>
+                </div>
+            </div>
+            
+            <div class="description">
+                <h3>📝 Description</h3>
+                <p>{{ opportunity.description }}</p>
+            </div>
+            
+            <div class="ai-email-section">
+                <h3>
+                    <span class="ai-icon">AI</span>
+                    AI-Generated Application Email
+                </h3>
+                <div class="email-content" id="emailContent">{{ ai_email }}</div>
+                <button class="copy-btn" onclick="copyEmail()">Copy Email</button>
+                <span class="success-message" id="copySuccess">Copied!</span>
+            </div>
+            
+            <div class="action-buttons">
+                <a href="{{ opportunity.apply_link }}" target="_blank" class="btn btn-primary">Apply Now</a>
+                <button onclick="window.history.back()" class="btn btn-secondary">Back to Map</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function copyEmail() {
+            const emailContent = document.getElementById('emailContent').textContent;
+            navigator.clipboard.writeText(emailContent).then(function() {
+                const successMsg = document.getElementById('copySuccess');
+                successMsg.style.display = 'inline';
+                setTimeout(function() {
+                    successMsg.style.display = 'none';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html> 

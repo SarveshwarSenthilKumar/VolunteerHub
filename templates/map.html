@@ -306,13 +306,11 @@
             opps.forEach(function(opp, idx) {
                 if (opp.lat && opp.lng) {
                     var latlng = [opp.lat, opp.lng];
-                    var popupContent = `
-                        <h3>${opp.title}</h3>
-                        <p><strong>Organization:</strong> ${opp.organization_name}</p>
-                        <p>${opp.description}</p>
-                        <a href="${opp.apply_link}" target="_blank">Apply Now</a>
-                    `;
-                    var marker = L.marker(latlng, {icon: markerIcon}).addTo(map).bindPopup(popupContent);
+                    var briefDescription = opp.description.length > 150 ? opp.description.substring(0, 150) + '...' : opp.description;
+                    var popupContent = `<h3>${opp.title}</h3><p><strong>Organization:</strong> ${opp.organization_name}</p><p>${briefDescription}</p><a href="/opportunity/${opp.id}" class="button button-primary" style="margin-top:0.7em;display:inline-block;">View Full Details</a>`;
+                    var marker = L.marker(latlng, {icon: markerIcon, riseOnHover: true}).addTo(map).bindPopup(popupContent, {maxWidth: 320});
+                    marker.on('popupopen', function() { marker._icon.classList.add('marker-bounce'); });
+                    marker.on('popupclose', function() { marker._icon.classList.remove('marker-bounce'); });
                     markers.push(marker);
                     bounds.push(latlng);
                     if (!firstLatLng) firstLatLng = latlng;

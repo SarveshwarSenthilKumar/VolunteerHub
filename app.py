@@ -1740,6 +1740,7 @@ def map_data():
         lng = opp.get("longitude")
         if lat is not None and lng is not None:
             map_opps.append({
+                "id": opp["id"],
                 "title": opp["title"],
                 "organization_name": opp["organization_name"],
                 "description": opp["description"],
@@ -1748,3 +1749,75 @@ def map_data():
                 "lng": lng
             })
     return {"opportunities": map_opps}
+
+@app.route("/opportunity/<int:opp_id>")
+def opportunity_detail(opp_id):
+    if not session.get("name"):
+        return redirect("/login")
+    
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    crsr.execute("SELECT * FROM opportunities WHERE id = ?", (opp_id,))
+    opportunity = crsr.fetchone()
+    connection.close()
+    
+    if not opportunity:
+        return "Opportunity not found", 404
+    
+    # Generate AI email for this opportunity
+    ai_email = generate_ai_email(opportunity)
+    
+    return render_template("opportunity_detail.html", opportunity=opportunity, ai_email=ai_email)
+
+def generate_ai_email(opportunity):
+    """Generate an AI email for the opportunity"""
+    prompt = f"""
+    Generate a professional email for applying to this volunteer opportunity:
+    
+    Title: {opportunity['title']}
+    Organization: {opportunity['organization_name']}
+    Description: {opportunity['description']}
+    Location: {opportunity['location']}
+    Apply Link: {opportunity['apply_link']}
+    
+    The email should be:
+    - Professional and enthusiastic
+    - Include relevant skills and experience
+    - Show genuine interest in the organization's mission
+    - Be concise but comprehensive
+    - Include a clear call to action
+    
+    Format as a complete email with subject line, greeting, body, and closing.
+    """
+    
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a professional email writer helping users apply to volunteer opportunities. Write compelling, personalized emails that showcase the applicant's enthusiasm and relevant skills."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500,
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"""Subject: Application for {opportunity['title']} Position
+
+Dear Hiring Team,
+
+I am writing to express my strong interest in the {opportunity['title']} position at {opportunity['organization_name']}. 
+
+After reviewing the opportunity description, I am excited about the possibility of contributing to your organization's mission. I believe my skills and passion align well with what you're looking for in a volunteer.
+
+{opportunity['description'][:200]}...
+
+I am particularly drawn to this role because it offers the opportunity to [add personal motivation here]. I am confident that my background and enthusiasm would make me a valuable addition to your team.
+
+I would welcome the opportunity to discuss how I can contribute to {opportunity['organization_name']} and learn more about this position. Thank you for considering my application.
+
+Best regards,
+[Your Name]
+
+Note: This is a template email. Please personalize it with your specific skills, experience, and motivation for this opportunity."""
