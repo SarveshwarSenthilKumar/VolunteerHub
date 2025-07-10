@@ -419,7 +419,7 @@ Separate each opportunity with a blank line. Ensure that the Apply Link is a val
         crsr = connection.cursor()
         existing_ids = set(opp['id'] for opp in opportunities if 'id' in opp)
         user_state = user['state'] if 'state' in user.keys() else ''
-        crsr.execute("SELECT * FROM opportunities WHERE city LIKE ? AND state LIKE ? ORDER BY RANDOM()", (f"%{user['city']}%", f"%{user_state}%"))
+        crsr.execute("SELECT * FROM opportunities WHERE city LIKE ? ORDER BY RANDOM()", (f"%{user['city']}%",))
         for row in crsr.fetchall():
             if len(opportunities) >= MIN_OPPS:
                 break
@@ -538,6 +538,8 @@ def search_opportunities():
             if not opportunities:
                 return render_template("opportunities.html", opportunities=[], randomized=False, rare_message=None, event_only_mode=event_only_mode, error_message="No events found for your search. Try a different keyword or event type.")
     rare_message = None
+    randomized = False  # Initialize randomized variable
+    fallback_label = "normal"  # Initialize fallback_label variable
     if not event_only_mode and fallback_label == "random":
         rare_message = "That's quite a specialty, a rare one!"
     return render_template("opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode)
@@ -1088,7 +1090,7 @@ Resume:
         # Re-fetch user after update
         user_crsr.execute("SELECT * FROM users WHERE username = ?", (session.get("name"),))
         user = user_crsr.fetchone()
-    has_resume = user["resume"] is not None
+    has_resume = user.get("resume") is not None
     user_connection.close()
     return render_template("profile.html", user=user, has_resume=has_resume, message=message)
 

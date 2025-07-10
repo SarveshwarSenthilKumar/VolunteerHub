@@ -62,7 +62,7 @@ def signup():
             return render_template('auth/signup.html', error='Please enter your date of birth.')
         # Phone validation (simple international/US number check)
         phone_pattern = r'^(\+\d{1,3}[- ]?)?\d{10}$'
-        if not re.match(phone_pattern, phone):
+        if not phone or not re.match(phone_pattern, phone):
             return render_template('auth/signup.html', error='Please enter a valid phone number (10 digits, with optional country code).')
         if not all([username, password, email, name, city, state, phone]):
             return render_template('auth/signup.html', error='Please fill in all fields')
