@@ -100,6 +100,34 @@
         color: var(--text-secondary);
         margin-bottom: 1.5rem;
     }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        margin: 3rem 0;
+        flex-wrap: wrap;
+    }
+
+    .pagination .page-info {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .pagination .button {
+        min-width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+    }
+
+    .pagination .button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 </style>
 {% endblock %}
 
@@ -131,6 +159,24 @@
         </div>
         {% endfor %}
     </div>
+
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if has_prev %}
+        <a href="?page={{ page - 1 }}" class="button button-secondary">← Previous</a>
+        {% else %}
+        <button class="button button-secondary" disabled>← Previous</button>
+        {% endif %}
+        
+        <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+        
+        {% if has_next %}
+        <a href="?page={{ page + 1 }}" class="button button-secondary">Next →</a>
+        {% else %}
+        <button class="button button-secondary" disabled>Next →</button>
+        {% endif %}
+    </div>
+    {% endif %}
 {% else %}
     <div class="empty-state">
         <div class="icon">★</div>

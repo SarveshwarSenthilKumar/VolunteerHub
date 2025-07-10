@@ -142,34 +142,112 @@ def get_best_opportunities_with_label(crsr, user_id, city, skills, base_query, b
     if not all_opportunities:
         return [], True, "no-results"
     
-    # Score opportunities based on skill relevance
+    # Enhanced scoring logic with role-specific improvements
     scored_opportunities = []
     for opp in all_opportunities:
         score = 0
-        opp_text = f"{opp.get('title', '')} {opp.get('description', '')} {opp.get('organization_name', '')} {opp.get('location', '')}".lower()
+        title = opp.get('title', '').lower()
+        org = opp.get('organization_name', '').lower()
+        desc = opp.get('description', '').lower()
+        loc = opp.get('location', '').lower()
+        
+        # Role-specific keywords that indicate better matches
+        role_indicators = {
+            'volunteer': 5, 'volunteering': 5, 'help': 3, 'support': 3, 'assist': 3,
+            'teach': 8, 'tutor': 8, 'mentor': 8, 'coach': 8, 'instructor': 8,
+            'lead': 10, 'leadership': 10, 'manage': 10, 'coordinate': 10, 'organize': 10,
+            'care': 6, 'nursing': 6, 'medical': 6, 'health': 6, 'patient': 6,
+            'food': 4, 'kitchen': 4, 'cooking': 4, 'meal': 4, 'hunger': 4,
+            'animal': 4, 'pet': 4, 'veterinary': 4, 'shelter': 4, 'rescue': 4,
+            'environment': 4, 'conservation': 4, 'recycling': 4, 'cleanup': 4, 'green': 4,
+            'education': 6, 'school': 6, 'student': 6, 'learning': 6, 'academic': 6,
+            'technology': 6, 'computer': 6, 'programming': 6, 'coding': 6, 'software': 6,
+            'art': 5, 'creative': 5, 'design': 5, 'music': 5, 'theater': 5,
+            'sports': 5, 'fitness': 5, 'athletic': 5, 'coaching': 5, 'training': 5
+        }
         
         for skill in skills:
-            skill_lower = skill.lower()
-            # Exact word match gets highest score
-            if f" {skill_lower} " in f" {opp_text} " or opp_text.startswith(skill_lower) or opp_text.endswith(skill_lower):
-                score += 10
-            # Partial match gets medium score
-            elif skill_lower in opp_text:
-                score += 5
-            # Title match gets bonus points
-            if skill_lower in opp.get('title', '').lower():
-                score += 3
-            # Organization name match gets bonus points
-            if skill_lower in opp.get('organization_name', '').lower():
-                score += 2
+            s = skill.lower().strip()
+            if not s:
+                continue
+                
+            # Check for exact word boundaries (most important)
+            import re
+            word_pattern = r'\b' + re.escape(s) + r'\b'
+            
+            # Title scoring (highest weight)
+            if re.search(word_pattern, title):
+                score += 40  # Exact word match in title
+            elif s in title:
+                score += 20  # Partial match in title
+            if title.startswith(s):
+                score += 10  # Starts with skill
+            if title.endswith(s):
+                score += 8   # Ends with skill
+            
+            # Organization scoring (high weight)
+            if re.search(word_pattern, org):
+                score += 30  # Exact word match in org
+            elif s in org:
+                score += 15  # Partial match in org
+            if org.startswith(s):
+                score += 8   # Starts with skill
+            
+            # Description scoring (medium weight)
+            if re.search(word_pattern, desc):
+                score += 15  # Exact word match in description
+            elif s in desc:
+                score += 8   # Partial match in description
+            
+            # Location scoring (lower weight)
+            if re.search(word_pattern, loc):
+                score += 5   # Exact word match in location
+            elif s in loc:
+                score += 3   # Partial match in location
+            
+            # Check for role-specific indicators
+            for indicator, bonus in role_indicators.items():
+                if indicator in title or indicator in org:
+                    score += bonus
+            
+            # Multi-word skill handling
+            if ' ' in s:
+                words = s.split()
+                # Check if all words are present (exact phrase match)
+                all_words_present = all(word in title or word in org or word in desc for word in words)
+                if all_words_present:
+                    score += 25  # Bonus for complete phrase match
+                
+                # Check individual words
+                for word in words:
+                    if re.search(r'\b' + re.escape(word) + r'\b', title):
+                        score += 15
+                    elif word in title:
+                        score += 8
+                    if re.search(r'\b' + re.escape(word) + r'\b', org):
+                        score += 10
+                    elif word in org:
+                        score += 5
+            
+            # Penalize if skill not found anywhere
+            if not (s in title or s in org or s in desc or s in loc):
+                score -= 15  # Increased penalty for no match
+        
+        # Additional scoring based on opportunity quality
+        if 'volunteer' in title or 'volunteering' in title:
+            score += 5  # Bonus for explicit volunteer roles
+        if 'urgent' in title or 'immediate' in title or 'asap' in title:
+            score += 3  # Bonus for urgent needs
+        if 'flexible' in title or 'remote' in title or 'virtual' in title:
+            score += 2  # Bonus for flexible opportunities
         
         scored_opportunities.append((opp, score))
     
     # Sort by score (highest first) and then by title for consistency
     scored_opportunities.sort(key=lambda x: (-x[1], x[0].get('title', '')))
     
-    # Return top results
-    results = [opp for opp, score in scored_opportunities[:min_results * 2]]  # Get more results to ensure we have enough after filtering
+    # Return ALL opportunities, ranked by relevance (not just top few)
+    results = [opp for opp, score in scored_opportunities]
     
     if len(results) >= min_results:
         return results, False, "scored"
@@ -202,7 +280,7 @@ def swipe():
     """
     base_params = [user["id"], user["city"]]
     skill_fields = ["o.title", "o.description", "o.organization_name"]
-    opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, min_results=5, debug_label="swipe")
+    opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, min_results=1, debug_label="swipe")
     connection.close()
     # If still empty, keep fetching from ChatGPT until we get at least one opportunity
     attempts = 0
@@ -281,6 +359,10 @@ def saved():
     if not session.get("name"):
         return redirect("/auth/login")
 
+    # Get page parameter
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+    
     # Get user id
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
@@ -293,14 +375,31 @@ def saved():
 
     # Get saved opportunities
     saved_opportunities = json.loads(user["saved_opportunities"])
+    
+    if not saved_opportunities:
+        return render_template("saved.html", opportunities=[], page=page, total_pages=0, has_prev=False, has_next=False)
+    
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
     crsr.execute("SELECT * FROM opportunities WHERE id IN ({})".format(",".join("?" * len(saved_opportunities))), saved_opportunities)
-    opportunities = [dict(row) for row in crsr.fetchall()]
+    all_opportunities = [dict(row) for row in crsr.fetchall()]
     connection.close()
+    
+    # Calculate pagination
+    total_opportunities = len(all_opportunities)
+    total_pages = (total_opportunities + per_page - 1) // per_page
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    # Get opportunities for current page
+    opportunities = all_opportunities[start_idx:end_idx]
+    
+    # Pagination info
+    has_prev = page > 1
+    has_next = page < total_pages
 
-    return render_template("saved.html", opportunities=opportunities)
+    return render_template("saved.html", opportunities=opportunities, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
 
 @app.route("/auth/logout")
 def logout():
@@ -340,6 +439,11 @@ def extract_event_types_from_text(text):
 def all_opportunities():
     if not session.get("name"):
         return redirect("/auth/login")
+    
+    # Get page parameter
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+    
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
@@ -359,7 +463,7 @@ def all_opportunities():
     flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
     flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
     if flagged_skills or flagged_keywords:
-        return render_template("all_opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.")
+        return render_template("all_opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.", page=page, total_pages=0, has_prev=False, has_next=False)
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
@@ -384,56 +488,145 @@ def all_opportunities():
             base_query += " AND (" + " OR ".join(event_clauses) + ")"
             base_params.extend(event_params)
         crsr.execute(base_query, base_params)
-        opportunities = [dict(row) for row in crsr.fetchall()]
+        all_opportunities = [dict(row) for row in crsr.fetchall()]
     else:
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
         if not combined_skills:
             # If no skills and no keywords, just show all opportunities in the city
             try:
                 crsr.execute(base_query + " ORDER BY RANDOM()", base_params)
-                opportunities = [dict(row) for row in crsr.fetchall()]
-                opportunities = [opp for opp in opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
+                all_opportunities = [dict(row) for row in crsr.fetchall()]
+                all_opportunities = [opp for opp in all_opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
                 randomized = True
                 fallback_label = "no-skills"
             except Exception as e:
                 print(f"DEBUG: Error executing query in all_opportunities: {e}")
                 print(f"DEBUG: Query: {base_query}")
                 print(f"DEBUG: Params: {base_params}")
-                opportunities = []
+                all_opportunities = []
                 randomized = True
                 fallback_label = "error"
         else:
-            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, debug_label="all-opportunities")
+            all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, min_results=1, debug_label="all-opportunities")
             
         # If we have keywords but no skills, also score by keyword relevance
-        if keyword and not used_skills and opportunities:
+        if keyword and not used_skills and all_opportunities:
             scored_opportunities = []
-            for opp in opportunities:
+            for opp in all_opportunities:
                 score = 0
-                opp_text = f"{opp.get('title', '')} {opp.get('description', '')} {opp.get('organization_name', '')} {opp.get('location', '')}".lower()
-                keyword_lower = keyword.lower()
+                title = opp.get('title', '').lower()
+                org = opp.get('organization_name', '').lower()
+                desc = opp.get('description', '').lower()
+                loc = opp.get('location', '').lower()
+                keyword_lower = keyword.lower().strip()
                 
-                # Exact word match gets highest score
-                if f" {keyword_lower} " in f" {opp_text} " or opp_text.startswith(keyword_lower) or opp_text.endswith(keyword_lower):
-                    score += 10
-                # Partial match gets medium score
-                elif keyword_lower in opp_text:
-                    score += 5
-                # Title match gets bonus points
-                if keyword_lower in opp.get('title', '').lower():
-                    score += 3
-                # Organization name match gets bonus points
-                if keyword_lower in opp.get('organization_name', '').lower():
-                    score += 2
+                # Role-specific keywords that indicate better matches
+                role_indicators = {
+                    'volunteer': 5, 'volunteering': 5, 'help': 3, 'support': 3, 'assist': 3,
+                    'teach': 8, 'tutor': 8, 'mentor': 8, 'coach': 8, 'instructor': 8,
+                    'lead': 10, 'leadership': 10, 'manage': 10, 'coordinate': 10, 'organize': 10,
+                    'care': 6, 'nursing': 6, 'medical': 6, 'health': 6, 'patient': 6,
+                    'food': 4, 'kitchen': 4, 'cooking': 4, 'meal': 4, 'hunger': 4,
+                    'animal': 4, 'pet': 4, 'veterinary': 4, 'shelter': 4, 'rescue': 4,
+                    'environment': 4, 'conservation': 4, 'recycling': 4, 'cleanup': 4, 'green': 4,
+                    'education': 6, 'school': 6, 'student': 6, 'learning': 6, 'academic': 6,
+                    'technology': 6, 'computer': 6, 'programming': 6, 'coding': 6, 'software': 6,
+                    'art': 5, 'creative': 5, 'design': 5, 'music': 5, 'theater': 5,
+                    'sports': 5, 'fitness': 5, 'athletic': 5, 'coaching': 5, 'training': 5
+                }
+                
+                # Check for exact word boundaries
+                import re
+                word_pattern = r'\b' + re.escape(keyword_lower) + r'\b'
+                
+                # Title scoring (highest weight)
+                if re.search(word_pattern, title):
+                    score += 40  # Exact word match in title
+                elif keyword_lower in title:
+                    score += 20  # Partial match in title
+                if title.startswith(keyword_lower):
+                    score += 10  # Starts with keyword
+                if title.endswith(keyword_lower):
+                    score += 8   # Ends with keyword
+                
+                # Organization scoring (high weight)
+                if re.search(word_pattern, org):
+                    score += 30  # Exact word match in org
+                elif keyword_lower in org:
+                    score += 15  # Partial match in org
+                if org.startswith(keyword_lower):
+                    score += 8   # Starts with keyword
+                
+                # Description scoring (medium weight)
+                if re.search(word_pattern, desc):
+                    score += 15  # Exact word match in description
+                elif keyword_lower in desc:
+                    score += 8   # Partial match in description
+                
+                # Location scoring (lower weight)
+                if re.search(word_pattern, loc):
+                    score += 5   # Exact word match in location
+                elif keyword_lower in loc:
+                    score += 3   # Partial match in location
+                
+                # Check for role-specific indicators
+                for indicator, bonus in role_indicators.items():
+                    if indicator in title or indicator in org:
+                        score += bonus
+                
+                # Multi-word keyword handling
+                if ' ' in keyword_lower:
+                    words = keyword_lower.split()
+                    # Check if all words are present (exact phrase match)
+                    all_words_present = all(word in title or word in org or word in desc for word in words)
+                    if all_words_present:
+                        score += 25  # Bonus for complete phrase match
+                    
+                    # Check individual words
+                    for word in words:
+                        if re.search(r'\b' + re.escape(word) + r'\b', title):
+                            score += 15
+                        elif word in title:
+                            score += 8
+                        if re.search(r'\b' + re.escape(word) + r'\b', org):
+                            score += 10
+                        elif word in org:
+                            score += 5
+                
+                # Penalize if keyword not found anywhere
+                if not (keyword_lower in title or keyword_lower in org or keyword_lower in desc or keyword_lower in loc):
+                    score -= 15  # Increased penalty for no match
+                
+                # Additional scoring based on opportunity quality
+                if 'volunteer' in title or 'volunteering' in title:
+                    score += 5  # Bonus for explicit volunteer roles
+                if 'urgent' in title or 'immediate' in title or 'asap' in title:
+                    score += 3  # Bonus for urgent needs
+                if 'flexible' in title or 'remote' in title or 'virtual' in title:
+                    score += 2  # Bonus for flexible opportunities
                 
                 scored_opportunities.append((opp, score))
             
             # Sort by score (highest first)
             scored_opportunities.sort(key=lambda x: (-x[1], x[0].get('title', '')))
-            opportunities = [opp for opp, score in scored_opportunities]
+            all_opportunities = [opp for opp, score in scored_opportunities]
             randomized = False
             fallback_label = "keyword-scored"
     connection.close()
+    
+    # Calculate pagination
+    total_opportunities = len(all_opportunities)
+    total_pages = (total_opportunities + per_page - 1) // per_page
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    # Get opportunities for current page
+    opportunities = all_opportunities[start_idx:end_idx]
+    
+    # Pagination info
+    has_prev = page > 1
+    has_next = page < total_pages
+    
     # If no opportunities found and keyword is non-empty, use ChatGPT to generate plausible opportunities
     if not opportunities and keyword:
         chatgpt_prompt = f"""
@@ -462,37 +655,43 @@ Separate each opportunity with a blank line. Ensure that the Apply Link is a val
         connection = sqlite3.connect("opportunities.db")
         connection.row_factory = sqlite3.Row
         crsr = connection.cursor()
+        inserted_count = 0
         for opp in parsed_opportunities:
-            insert_opportunity_safely(crsr, opp)
+            if insert_opportunity_safely(crsr, opp):
+                inserted_count += 1
         connection.commit()
-        # Query again for the user
-        crsr.execute(base_query, base_params)
-        opportunities = [dict(row) for row in crsr.fetchall()]
         connection.close()
-    rare_message = None
-    if not event_only_mode and fallback_label == "random":
-        rare_message = "That's quite a specialty, a rare one!"
-    # After main query, if not event_only_mode and too few results, fill with random city/state opps
-    MIN_OPPS = 10
-    if not event_only_mode and len(opportunities) < MIN_OPPS:
+        # Try again with the new opportunities
         connection = sqlite3.connect("opportunities.db")
         connection.row_factory = sqlite3.Row
         crsr = connection.cursor()
-        existing_ids = set(opp['id'] for opp in opportunities if 'id' in opp)
-        user_state = user['state'] if 'state' in user.keys() else ''
-        crsr.execute("SELECT * FROM opportunities WHERE city LIKE ? ORDER BY RANDOM()", (f"%{user['city']}%",))
-        for row in crsr.fetchall():
-            if len(opportunities) >= MIN_OPPS:
-                break
-            if row['id'] not in existing_ids:
-                opportunities.append(dict(row))
+        all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, min_results=1, debug_label="all-opportunities-refetch")
         connection.close()
-    return render_template("all_opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode)
+        
+        # Recalculate pagination for new opportunities
+        total_opportunities = len(all_opportunities)
+        total_pages = (total_opportunities + per_page - 1) // per_page
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        opportunities = all_opportunities[start_idx:end_idx]
+        has_prev = page > 1
+        has_next = page < total_pages
+    
+    rare_message = None
+    if not event_only_mode and fallback_label == "random":
+        rare_message = "That's quite a specialty, a rare one!"
+    
+    return render_template("all_opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
 
 @app.route("/opportunities", methods=["GET"])
 def search_opportunities():
     if not session.get("name"):
         return redirect("/auth/login")
+    
+    # Get page parameter
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+    
     keyword = request.args.get("keyword", "").strip()
     city = request.args.get("city", "").strip()
     user_connection = sqlite3.connect("users.db")
@@ -518,7 +717,7 @@ def search_opportunities():
     flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
     flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
     if flagged_skills or flagged_keywords:
-        return render_template("opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.")
+        return render_template("opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.", page=page, total_pages=0, has_prev=False, has_next=False)
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
@@ -544,56 +743,145 @@ def search_opportunities():
             base_query += " AND (" + " OR ".join(event_clauses) + ")"
             base_params.extend(event_params)
         crsr.execute(base_query, base_params)
-        opportunities = [dict(row) for row in crsr.fetchall()]
+        all_opportunities = [dict(row) for row in crsr.fetchall()]
     else:
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
         if not combined_skills:
             # If no skills and no keywords, just show all opportunities in the city
             try:
                 crsr.execute(base_query + " ORDER BY RANDOM()", base_params)
-                opportunities = [dict(row) for row in crsr.fetchall()]
-                opportunities = [opp for opp in opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
+                all_opportunities = [dict(row) for row in crsr.fetchall()]
+                all_opportunities = [opp for opp in all_opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
                 randomized = True
                 fallback_label = "no-skills"
             except Exception as e:
                 print(f"DEBUG: Error executing query in search_opportunities: {e}")
                 print(f"DEBUG: Query: {base_query}")
                 print(f"DEBUG: Params: {base_params}")
-                opportunities = []
+                all_opportunities = []
                 randomized = True
                 fallback_label = "error"
         else:
-            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, base_query, base_params, skill_fields, debug_label="opportunities")
+            all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, base_query, base_params, skill_fields, min_results=1, debug_label="opportunities")
             
         # If we have keywords but no skills, also score by keyword relevance
-        if keyword and not used_skills and opportunities:
+        if keyword and not used_skills and all_opportunities:
             scored_opportunities = []
-            for opp in opportunities:
+            for opp in all_opportunities:
                 score = 0
-                opp_text = f"{opp.get('title', '')} {opp.get('description', '')} {opp.get('organization_name', '')} {opp.get('location', '')}".lower()
-                keyword_lower = keyword.lower()
+                title = opp.get('title', '').lower()
+                org = opp.get('organization_name', '').lower()
+                desc = opp.get('description', '').lower()
+                loc = opp.get('location', '').lower()
+                keyword_lower = keyword.lower().strip()
                 
-                # Exact word match gets highest score
-                if f" {keyword_lower} " in f" {opp_text} " or opp_text.startswith(keyword_lower) or opp_text.endswith(keyword_lower):
-                    score += 10
-                # Partial match gets medium score
-                elif keyword_lower in opp_text:
-                    score += 5
-                # Title match gets bonus points
-                if keyword_lower in opp.get('title', '').lower():
-                    score += 3
-                # Organization name match gets bonus points
-                if keyword_lower in opp.get('organization_name', '').lower():
-                    score += 2
+                # Role-specific keywords that indicate better matches
+                role_indicators = {
+                    'volunteer': 5, 'volunteering': 5, 'help': 3, 'support': 3, 'assist': 3,
+                    'teach': 8, 'tutor': 8, 'mentor': 8, 'coach': 8, 'instructor': 8,
+                    'lead': 10, 'leadership': 10, 'manage': 10, 'coordinate': 10, 'organize': 10,
+                    'care': 6, 'nursing': 6, 'medical': 6, 'health': 6, 'patient': 6,
+                    'food': 4, 'kitchen': 4, 'cooking': 4, 'meal': 4, 'hunger': 4,
+                    'animal': 4, 'pet': 4, 'veterinary': 4, 'shelter': 4, 'rescue': 4,
+                    'environment': 4, 'conservation': 4, 'recycling': 4, 'cleanup': 4, 'green': 4,
+                    'education': 6, 'school': 6, 'student': 6, 'learning': 6, 'academic': 6,
+                    'technology': 6, 'computer': 6, 'programming': 6, 'coding': 6, 'software': 6,
+                    'art': 5, 'creative': 5, 'design': 5, 'music': 5, 'theater': 5,
+                    'sports': 5, 'fitness': 5, 'athletic': 5, 'coaching': 5, 'training': 5
+                }
+                
+                # Check for exact word boundaries
+                import re
+                word_pattern = r'\b' + re.escape(keyword_lower) + r'\b'
+                
+                # Title scoring (highest weight)
+                if re.search(word_pattern, title):
+                    score += 40  # Exact word match in title
+                elif keyword_lower in title:
+                    score += 20  # Partial match in title
+                if title.startswith(keyword_lower):
+                    score += 10  # Starts with keyword
+                if title.endswith(keyword_lower):
+                    score += 8   # Ends with keyword
+                
+                # Organization scoring (high weight)
+                if re.search(word_pattern, org):
+                    score += 30  # Exact word match in org
+                elif keyword_lower in org:
+                    score += 15  # Partial match in org
+                if org.startswith(keyword_lower):
+                    score += 8   # Starts with keyword
+                
+                # Description scoring (medium weight)
+                if re.search(word_pattern, desc):
+                    score += 15  # Exact word match in description
+                elif keyword_lower in desc:
+                    score += 8   # Partial match in description
+                
+                # Location scoring (lower weight)
+                if re.search(word_pattern, loc):
+                    score += 5   # Exact word match in location
+                elif keyword_lower in loc:
+                    score += 3   # Partial match in location
+                
+                # Check for role-specific indicators
+                for indicator, bonus in role_indicators.items():
+                    if indicator in title or indicator in org:
+                        score += bonus
+                
+                # Multi-word keyword handling
+                if ' ' in keyword_lower:
+                    words = keyword_lower.split()
+                    # Check if all words are present (exact phrase match)
+                    all_words_present = all(word in title or word in org or word in desc for word in words)
+                    if all_words_present:
+                        score += 25  # Bonus for complete phrase match
+                    
+                    # Check individual words
+                    for word in words:
+                        if re.search(r'\b' + re.escape(word) + r'\b', title):
+                            score += 15
+                        elif word in title:
+                            score += 8
+                        if re.search(r'\b' + re.escape(word) + r'\b', org):
+                            score += 10
+                        elif word in org:
+                            score += 5
+                
+                # Penalize if keyword not found anywhere
+                if not (keyword_lower in title or keyword_lower in org or keyword_lower in desc or keyword_lower in loc):
+                    score -= 15  # Increased penalty for no match
+                
+                # Additional scoring based on opportunity quality
+                if 'volunteer' in title or 'volunteering' in title:
+                    score += 5  # Bonus for explicit volunteer roles
+                if 'urgent' in title or 'immediate' in title or 'asap' in title:
+                    score += 3  # Bonus for urgent needs
+                if 'flexible' in title or 'remote' in title or 'virtual' in title:
+                    score += 2  # Bonus for flexible opportunities
                 
                 scored_opportunities.append((opp, score))
             
             # Sort by score (highest first)
             scored_opportunities.sort(key=lambda x: (-x[1], x[0].get('title', '')))
-            opportunities = [opp for opp, score in scored_opportunities]
+            all_opportunities = [opp for opp, score in scored_opportunities]
             randomized = False
             fallback_label = "keyword-scored"
     connection.close()
+    
+    # Calculate pagination
+    total_opportunities = len(all_opportunities)
+    total_pages = (total_opportunities + per_page - 1) // per_page
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    # Get opportunities for current page
+    opportunities = all_opportunities[start_idx:end_idx]
+    
+    # Pagination info
+    has_prev = page > 1
+    has_next = page < total_pages
+    
     # If still empty, use ChatGPT to generate events (not just volunteer opps) for event types
     # Initialize variables
     randomized = False
@@ -642,12 +930,22 @@ def search_opportunities():
                 base_query2 += " AND (" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")"
                 base_params2.extend([f"%{keyword.lower()}%"] * len(skill_fields))
             crsr.execute(base_query2, base_params2)
-            opportunities = [dict(row) for row in crsr.fetchall()]
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
             connection.close()
+            
+            # Recalculate pagination for new opportunities
+            total_opportunities = len(all_opportunities)
+            total_pages = (total_opportunities + per_page - 1) // per_page
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            opportunities = all_opportunities[start_idx:end_idx]
+            has_prev = page > 1
+            has_next = page < total_pages
+            
             randomized = False
             # If still no results, show a user-friendly message
             if not opportunities:
-                return render_template("opportunities.html", opportunities=[], randomized=False, rare_message=None, event_only_mode=event_only_mode, error_message="No events found for your search. Try a different keyword or event type.")
+                return render_template("opportunities.html", opportunities=[], randomized=False, rare_message=None, event_only_mode=event_only_mode, error_message="No events found for your search. Try a different keyword or event type.", page=page, total_pages=0, has_prev=False, has_next=False)
     
     rare_message = None
     randomized = False  # Initialize randomized variable
@@ -657,7 +955,7 @@ def search_opportunities():
     print(f"DEBUG: Final opportunities count: {len(opportunities)}")
     print(f"DEBUG: Search city: {search_city}")
     print(f"DEBUG: Keyword: {keyword}")
-    return render_template("opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode)
+    return render_template("opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
 
 @app.route("/fetch_opportunities_background", methods=["POST"])
 def fetch_opportunities_background():
@@ -675,18 +973,20 @@ def fetch_opportunities_background():
     if not user or not user["city"]:
         return jsonify({"error": "No city found for user"}), 400
 
-    # Get keyword from request (if present)
+    # Get keyword and city from request (if present)
     data = request.get_json(silent=True)
     if not data:
         data = {}
     keyword = data.get("keyword", None)
+    city = data.get("city", None)
+    search_city = city.strip() if city and city.strip() else user["city"]
 
     # Fetch new opportunities from ChatGPT
     if keyword:
-        chatgpt_prompt = f"""Generate 5 volunteer opportunities in {user['city']} related to '{keyword}'. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
-        opportunities_text = get_opportunities_from_chatgpt(user["city"], custom_prompt=chatgpt_prompt)
+        chatgpt_prompt = f"""Generate 5 volunteer opportunities in {search_city} related to '{keyword}'. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
+        opportunities_text = get_opportunities_from_chatgpt(search_city, custom_prompt=chatgpt_prompt)
     else:
-        opportunities_text = get_opportunities_from_chatgpt(user["city"])
+        opportunities_text = get_opportunities_from_chatgpt(search_city)
     user_state = user["state"] if "state" in user.keys() else None
     if opportunities_text:
         parsed_opportunities = extract_opportunity_info(opportunities_text, user_state)
@@ -963,6 +1263,10 @@ def map_view():
     if not session.get("name"):
         return redirect("/auth/login")
 
+    # Get page parameter
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+
     # Get user id and city
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
@@ -1002,8 +1306,21 @@ def map_view():
             params.extend(keyword_params)
     query += " ORDER BY created_at DESC"
     crsr.execute(query, params)
-    opportunities = [dict(row) for row in crsr.fetchall()]
+    all_opportunities = [dict(row) for row in crsr.fetchall()]
     connection.close()
+
+    # Calculate pagination
+    total_opportunities = len(all_opportunities)
+    total_pages = (total_opportunities + per_page - 1) // per_page
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    # Get opportunities for current page
+    opportunities = all_opportunities[start_idx:end_idx]
+    
+    # Pagination info
+    has_prev = page > 1
+    has_next = page < total_pages
 
     # Geocode addresses using Google Maps API, do NOT update DB
     GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
@@ -1034,7 +1351,7 @@ def map_view():
                 "lat": lat,
                 "lng": lng
             })
-    return render_template("map.html", opportunities=map_opps)
+    return render_template("map.html", opportunities=map_opps, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
 
 @app.route("/_admin_dashboard", methods=["GET", "POST"])
 def admin_dashboard():
@@ -1235,6 +1552,11 @@ def download_resume():
 def resume_match():
     if not session.get("name"):
         return redirect("/auth/login")
+    
+    # Get page parameter
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+    
     message = None
     matched_opportunities = []
     extracted_skills = []
@@ -1291,10 +1613,20 @@ Resume:
                     query = "SELECT * FROM opportunities"
                     if clauses:
                         query += " WHERE " + " OR ".join(clauses)
-                    query += " ORDER BY created_at DESC LIMIT 20"
+                    query += " ORDER BY created_at DESC"
                     crsr.execute(query, params)
-                    matched_opportunities = [dict(row) for row in crsr.fetchall()]
+                    all_matched_opportunities = [dict(row) for row in crsr.fetchall()]
                     connection.close()
+                    
+                    # Calculate pagination
+                    total_opportunities = len(all_matched_opportunities)
+                    total_pages = (total_opportunities + per_page - 1) // per_page
+                    start_idx = (page - 1) * per_page
+                    end_idx = start_idx + per_page
+                    
+                    # Get opportunities for current page
+                    matched_opportunities = all_matched_opportunities[start_idx:end_idx]
+                    
                     if not matched_opportunities:
                         # If no DB matches, ask ChatGPT for real, verifiable opportunities for these skills
                         chat_prompt = f"""
@@ -1328,7 +1660,14 @@ Only include real opportunities with working links. Separate each opportunity wi
                                 message = "No matching opportunities found for your resume, even from ChatGPT."
                         except Exception as e:
                             message = f"No matching opportunities found for your resume, and failed to fetch from ChatGPT: {e}"
-    return render_template("resume_match.html", message=message, matched_opportunities=matched_opportunities, extracted_skills=extracted_skills)
+    
+    # Calculate pagination info for display
+    total_opportunities = len(matched_opportunities)
+    total_pages = (total_opportunities + per_page - 1) // per_page
+    has_prev = page > 1
+    has_next = page < total_pages
+    
+    return render_template("resume_match.html", message=message, matched_opportunities=matched_opportunities, extracted_skills=extracted_skills, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
 
 @app.route('/generate-ai-email', methods=['POST'])
 def generate_ai_email():
@@ -1385,6 +1724,11 @@ Write a complete, detailed, and persuasive email with:
 def ai_email():
     if not session.get("name"):
         return redirect("/auth/login")
+    
+    # Get page parameter
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+    
     # Get user id
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
@@ -1401,11 +1745,25 @@ def ai_email():
     crsr = connection.cursor()
     if saved_opportunities:
         crsr.execute("SELECT * FROM opportunities WHERE id IN ({})".format(",".join(["?"]*len(saved_opportunities))), saved_opportunities)
-        opportunities = [dict(row) for row in crsr.fetchall()]
+        all_opportunities = [dict(row) for row in crsr.fetchall()]
     else:
-        opportunities = []
+        all_opportunities = []
     connection.close()
-    return render_template("ai_email.html", opportunities=opportunities)
+    
+    # Calculate pagination
+    total_opportunities = len(all_opportunities)
+    total_pages = (total_opportunities + per_page - 1) // per_page
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    # Get opportunities for current page
+    opportunities = all_opportunities[start_idx:end_idx]
+    
+    # Pagination info
+    has_prev = page > 1
+    has_next = page < total_pages
+    
+    return render_template("ai_email.html", opportunities=opportunities, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
 
 @app.route('/admin/add-opportunity', methods=['GET', 'POST'])
 def admin_add_opportunity():

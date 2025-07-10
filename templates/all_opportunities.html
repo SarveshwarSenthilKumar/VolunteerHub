@@ -69,6 +69,24 @@
         </div>
         {% endfor %}
     </div>
+
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if has_prev %}
+        <a href="?page={{ page - 1 }}{% if request.args.get('keyword') %}&keyword={{ request.args.get('keyword') }}{% endif %}{% if request.args.get('include_conferences') %}&include_conferences=1{% endif %}{% if request.args.get('include_hackathons') %}&include_hackathons=1{% endif %}{% if request.args.get('include_contests') %}&include_contests=1{% endif %}{% if request.args.get('include_competitions') %}&include_competitions=1{% endif %}{% if request.args.get('include_meetups') %}&include_meetups=1{% endif %}" class="button">← Previous</a>
+        {% else %}
+        <button class="button" disabled>← Previous</button>
+        {% endif %}
+        
+        <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+        
+        {% if has_next %}
+        <a href="?page={{ page + 1 }}{% if request.args.get('keyword') %}&keyword={{ request.args.get('keyword') }}{% endif %}{% if request.args.get('include_conferences') %}&include_conferences=1{% endif %}{% if request.args.get('include_hackathons') %}&include_hackathons=1{% endif %}{% if request.args.get('include_contests') %}&include_contests=1{% endif %}{% if request.args.get('include_competitions') %}&include_competitions=1{% endif %}{% if request.args.get('include_meetups') %}&include_meetups=1{% endif %}" class="button">Next →</a>
+        {% else %}
+        <button class="button" disabled>Next →</button>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 
 <style>
@@ -296,6 +314,36 @@ body {
 .event-type-checkbox:hover,
 .event-type-checkbox input[type="checkbox"]:focus + span {
     color: #fff;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin: 3rem 0;
+    flex-wrap: wrap;
+}
+
+.pagination .page-info {
+    color: #bfc9d1;
+    font-size: 0.875rem;
+}
+
+.pagination .button {
+    min-width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    width: auto;
+    margin-top: 0;
+}
+
+.pagination .button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 </style>
 

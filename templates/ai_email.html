@@ -155,6 +155,64 @@
             font-size: 1.08em;
         }
     }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        margin: 2rem 0;
+        flex-wrap: wrap;
+    }
+
+    .pagination .page-info {
+        color: #bfc9d1;
+        font-size: 0.875rem;
+    }
+
+    .pagination .button {
+        min-width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        width: auto;
+        margin-top: 0;
+        background: #3b82f6;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 15px;
+        cursor: pointer;
+        transition: background 0.2s;
+        text-decoration: none;
+    }
+
+    .pagination .button:hover {
+        background: #2563eb;
+    }
+
+    .pagination .button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .button-secondary {
+        background: #6b7280;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 15px;
+        font-size: 1em;
+        cursor: pointer;
+        transition: background 0.2s;
+        text-decoration: none;
+    }
+
+    .button-secondary:hover {
+        background: #4b5563;
+    }
 </style>
 {% endblock %}
 
@@ -184,6 +242,24 @@
                 </li>
             {% endfor %}
             </ul>
+
+            {% if total_pages > 1 %}
+            <div class="pagination">
+                {% if has_prev %}
+                <a href="?page={{ page - 1 }}" class="button button-secondary">← Previous</a>
+                {% else %}
+                <button class="button button-secondary" disabled>← Previous</button>
+                {% endif %}
+                
+                <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+                
+                {% if has_next %}
+                <a href="?page={{ page + 1 }}" class="button button-secondary">Next →</a>
+                {% else %}
+                <button class="button button-secondary" disabled>Next →</button>
+                {% endif %}
+            </div>
+            {% endif %}
         {% else %}
             <div style="color:#bfc9d1;text-align:center;">No saved opportunities found.</div>
         {% endif %}
