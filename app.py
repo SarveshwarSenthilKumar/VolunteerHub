@@ -473,35 +473,29 @@ def all_opportunities():
     if not user["city"] and not any(used_skills):
         base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
         base_params = []
+        print(f"[DEBUG] Query: {base_query}, Params: {base_params}")
         crsr.execute(base_query, base_params)
         all_opportunities = [dict(row) for row in crsr.fetchall()]
+        print(f"[DEBUG] Results found: {len(all_opportunities)}")
         randomized = True
         fallback_label = "no-profile"
     # If no skills but has city, show all in city
     elif not any(used_skills):
         base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
         base_params = [f"%{user['city'].lower()}%"]
+        print(f"[DEBUG] Query: {base_query}, Params: {base_params}")
         crsr.execute(base_query, base_params)
         all_opportunities = [dict(row) for row in crsr.fetchall()]
+        print(f"[DEBUG] Results found: {len(all_opportunities)}")
         randomized = True
         fallback_label = "no-skills"
     else:
         # Existing logic for skills/keywords
         skill_fields = ["title", "description", "organization_name", "location"]
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
+        print(f"[DEBUG] Querying with skills: {combined_skills}")
         all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, "SELECT o.* FROM opportunities o LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ? WHERE o.city LIKE ?", [user["id"], f"%{user['city']}%"], skill_fields, min_results=1, debug_label="all-opportunities")
-        # If we have keywords but no skills, also score by keyword relevance
-        if keyword and not used_skills and all_opportunities:
-            scored_opportunities = []
-            for opp in all_opportunities:
-                score = 0
-                title = opp.get('title', '').lower()
-                org = opp.get('organization_name', '').lower()
-                desc = opp.get('description', '').lower()
-                loc = opp.get('location', '').lower()
-                keyword_lower = keyword.lower().strip()
-                # ... scoring logic ...
-            # ... sort and assign all_opportunities ...
+        print(f"[DEBUG] Results found: {len(all_opportunities)}")
     connection.close()
     # Pagination
     total_opportunities = len(all_opportunities)
@@ -557,35 +551,29 @@ def search_opportunities():
     if not search_city and not any(used_skills):
         base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
         base_params = []
+        print(f"[DEBUG] Query: {base_query}, Params: {base_params}")
         crsr.execute(base_query, base_params)
         all_opportunities = [dict(row) for row in crsr.fetchall()]
+        print(f"[DEBUG] Results found: {len(all_opportunities)}")
         randomized = True
         fallback_label = "no-profile"
     # If no skills but has city, show all in city
     elif not any(used_skills):
         base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
         base_params = [f"%{search_city.lower()}%"]
+        print(f"[DEBUG] Query: {base_query}, Params: {base_params}")
         crsr.execute(base_query, base_params)
         all_opportunities = [dict(row) for row in crsr.fetchall()]
+        print(f"[DEBUG] Results found: {len(all_opportunities)}")
         randomized = True
         fallback_label = "no-skills"
     else:
         # Existing logic for skills/keywords
         skill_fields = ["title", "description", "organization_name", "location"]
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
+        print(f"[DEBUG] Querying with skills: {combined_skills}")
         all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, "SELECT * FROM opportunities WHERE 1=1" + (f" AND LOWER(city) LIKE ?" if search_city else ""), ([f"%{search_city.lower()}%"] if search_city else []), skill_fields, min_results=1, debug_label="opportunities")
-        # If we have keywords but no skills, also score by keyword relevance
-        if keyword and not used_skills and all_opportunities:
-            scored_opportunities = []
-            for opp in all_opportunities:
-                score = 0
-                title = opp.get('title', '').lower()
-                org = opp.get('organization_name', '').lower()
-                desc = opp.get('description', '').lower()
-                loc = opp.get('location', '').lower()
-                keyword_lower = keyword.lower().strip()
-                # ... scoring logic ...
-            # ... sort and assign all_opportunities ...
+        print(f"[DEBUG] Results found: {len(all_opportunities)}")
     connection.close()
     # Pagination
     total_opportunities = len(all_opportunities)

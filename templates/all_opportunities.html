@@ -16,11 +16,6 @@
 {% endblock %}
 
 {% block content %}
-{% if missing_profile_info %}
-    <div class="profile-tip">
-        For the best matches, add your <a href="/profile" style="color:#06b6d4;text-decoration:underline;">city</a> and <a href="/profile" style="color:#06b6d4;text-decoration:underline;">interests/skills</a> to your profile!
-    </div>
-{% endif %}
 <div class="opportunities-container">
     {% if event_only_mode %}
     <div class="event-only-message" style="background:#23272a;color:#3b82f6;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;font-weight:700;">
@@ -43,7 +38,7 @@
     <div class="search-header">
         <h1 style="color: #fff;">All Opportunities in Your City</h1>
         <div class="search-bar-container">
-            <form method="GET" action="/opportunities">
+            <form method="GET" action="/all-opportunities">
                 <div class="search-bar">
                     <i class="fas fa-search"></i>
                     <input type="text" name="keyword" placeholder="Ex: Programming" aria-label="Search volunteer opportunities" value="{{ request.args.get('keyword', '') }}">
@@ -280,6 +275,20 @@ body {
     
     .opportunities-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .opportunities-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .search-header, .search-bar-container {
+        width: 100% !important;
+        max-width: 100vw !important;
+        padding: 0 0.5rem;
+    }
+    .search-bar input, .search-button {
+        font-size: 1.1rem;
     }
 }
 
