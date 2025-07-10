@@ -18,7 +18,7 @@ cursor.execute('''
         is_admin INTEGER DEFAULT 0,
         resume BLOB,
         skills TEXT DEFAULT '',
-        birthday TEXT
+        dateOfBirth TEXT
     )
 ''')
 conn.commit()

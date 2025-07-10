@@ -100,7 +100,7 @@ def reset_users_db():
                 is_admin INTEGER DEFAULT 0,
                 resume BLOB,
                 skills TEXT DEFAULT '',
-                birthday TEXT
+                dateOfBirth TEXT
             )
         ''')
         

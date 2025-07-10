@@ -132,33 +132,49 @@ def get_best_opportunities_with_label(crsr, user_id, city, skills, base_query, b
         results = [dict(row) for row in crsr.fetchall()]
         results = [opp for opp in results if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
         return results, True, "no-skills"
-    attempts = []
-    used_skills = [s for s in skills]
-    attempts.append(("all", used_skills))
-    filtered_skills = filter_generic_skills(used_skills)
-    if filtered_skills and filtered_skills != used_skills:
-        attempts.append(("filtered", filtered_skills))
-    if len(filtered_skills) > 3:
-        attempts.append(("top3", filtered_skills[:3]))
-    attempts.append(("random", []))
-    for label, skills_try in attempts:
-        query = base_query
-        params = list(base_params)
-        if skills_try:
-            skill_clauses = []
-            skill_params = []
-            for skill in skills_try:
-                skill_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
-                skill_params.extend([f"%{skill}%"] * len(skill_fields))
-            query += " AND (" + " OR ".join(skill_clauses) + ")"
-            params.extend(skill_params)
-        query += " ORDER BY RANDOM()"
-        crsr.execute(query, params)
-        results = [dict(row) for row in crsr.fetchall()]
-        results = [opp for opp in results if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
-        if len(results) >= min_results:
-            return results, (label == "random"), label
-    return results, True, "random"
+    
+    # Get all opportunities that match the base criteria
+    query = base_query + " ORDER BY RANDOM()"
+    crsr.execute(query, base_params)
+    all_opportunities = [dict(row) for row in crsr.fetchall()]
+    all_opportunities = [opp for opp in all_opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
+    
+    if not all_opportunities:
+        return [], True, "no-results"
+    
+    # Score opportunities based on skill relevance
+    scored_opportunities = []
+    for opp in all_opportunities:
+        score = 0
+        opp_text = f"{opp.get('title', '')} {opp.get('description', '')} {opp.get('organization_name', '')} {opp.get('location', '')}".lower()
+        
+        for skill in skills:
+            skill_lower = skill.lower()
+            # Exact word match gets highest score
+            if f" {skill_lower} " in f" {opp_text} " or opp_text.startswith(skill_lower) or opp_text.endswith(skill_lower):
+                score += 10
+            # Partial match gets medium score
+            elif skill_lower in opp_text:
+                score += 5
+            # Title match gets bonus points
+            if skill_lower in opp.get('title', '').lower():
+                score += 3
+            # Organization name match gets bonus points
+            if skill_lower in opp.get('organization_name', '').lower():
+                score += 2
+        
+        scored_opportunities.append((opp, score))
+    
+    # Sort by score (highest first) and then by title for consistency
+    scored_opportunities.sort(key=lambda x: (-x[1], x[0].get('title', '')))
+    
+    # Return top results
+    results = [opp for opp, score in scored_opportunities[:min_results * 2]]  # Get more results to ensure we have enough after filtering
+    
+    if len(results) >= min_results:
+        return results, False, "scored"
+    else:
+        return results, True, "random"
 
 @app.route("/swipe", methods=["GET"])
 def swipe():
@@ -186,7 +202,7 @@ def swipe():
     """
     base_params = [user["id"], user["city"]]
     skill_fields = ["o.title", "o.description", "o.organization_name"]
-    opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, debug_label="swipe")
+    opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, min_results=5, debug_label="swipe")
     connection.close()
     # If still empty, keep fetching from ChatGPT until we get at least one opportunity
     attempts = 0
@@ -209,7 +225,7 @@ def swipe():
             connection = sqlite3.connect("opportunities.db")
             connection.row_factory = sqlite3.Row
             crsr = connection.cursor()
-            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, debug_label=f"swipe-refetch-{attempts}")
+            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], used_skills, base_query, base_params, skill_fields, min_results=5, debug_label=f"swipe-refetch-{attempts}")
             connection.close()
         attempts += 1
     rare_message = None
@@ -371,7 +387,52 @@ def all_opportunities():
         opportunities = [dict(row) for row in crsr.fetchall()]
     else:
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
-        opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, debug_label="all-opportunities")
+        if not combined_skills:
+            # If no skills and no keywords, just show all opportunities in the city
+            try:
+                crsr.execute(base_query + " ORDER BY RANDOM()", base_params)
+                opportunities = [dict(row) for row in crsr.fetchall()]
+                opportunities = [opp for opp in opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
+                randomized = True
+                fallback_label = "no-skills"
+            except Exception as e:
+                print(f"DEBUG: Error executing query in all_opportunities: {e}")
+                print(f"DEBUG: Query: {base_query}")
+                print(f"DEBUG: Params: {base_params}")
+                opportunities = []
+                randomized = True
+                fallback_label = "error"
+        else:
+            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, debug_label="all-opportunities")
+            
+        # If we have keywords but no skills, also score by keyword relevance
+        if keyword and not used_skills and opportunities:
+            scored_opportunities = []
+            for opp in opportunities:
+                score = 0
+                opp_text = f"{opp.get('title', '')} {opp.get('description', '')} {opp.get('organization_name', '')} {opp.get('location', '')}".lower()
+                keyword_lower = keyword.lower()
+                
+                # Exact word match gets highest score
+                if f" {keyword_lower} " in f" {opp_text} " or opp_text.startswith(keyword_lower) or opp_text.endswith(keyword_lower):
+                    score += 10
+                # Partial match gets medium score
+                elif keyword_lower in opp_text:
+                    score += 5
+                # Title match gets bonus points
+                if keyword_lower in opp.get('title', '').lower():
+                    score += 3
+                # Organization name match gets bonus points
+                if keyword_lower in opp.get('organization_name', '').lower():
+                    score += 2
+                
+                scored_opportunities.append((opp, score))
+            
+            # Sort by score (highest first)
+            scored_opportunities.sort(key=lambda x: (-x[1], x[0].get('title', '')))
+            opportunities = [opp for opp, score in scored_opportunities]
+            randomized = False
+            fallback_label = "keyword-scored"
     connection.close()
     # If no opportunities found and keyword is non-empty, use ChatGPT to generate plausible opportunities
     if not opportunities and keyword:
@@ -442,7 +503,7 @@ def search_opportunities():
     user_connection.close()
     if not user:
         return redirect("/auth/login")
-    search_city = city if city else user["city"]
+    search_city = city.strip() if city and city.strip() else user["city"]
     event_types = list(EVENT_TYPE_ALIASES.keys())
     include_types = [etype for etype in event_types if request.args.get(f'include_{etype}s')]
     extracted_types = extract_event_types_from_text(keyword) if keyword else []
@@ -466,6 +527,7 @@ def search_opportunities():
     if search_city:
         base_query += " AND LOWER(city) LIKE ?"
         base_params.append(f"%{search_city.lower()}%")
+        print(f"DEBUG: Searching for city: {search_city}")  # Debug line
     skill_fields = ["title", "description", "organization_name", "location"]
     # Determine if this is an event-only search
     event_only_mode = False
@@ -485,9 +547,58 @@ def search_opportunities():
         opportunities = [dict(row) for row in crsr.fetchall()]
     else:
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
-        opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, base_query, base_params, skill_fields, debug_label="opportunities")
+        if not combined_skills:
+            # If no skills and no keywords, just show all opportunities in the city
+            try:
+                crsr.execute(base_query + " ORDER BY RANDOM()", base_params)
+                opportunities = [dict(row) for row in crsr.fetchall()]
+                opportunities = [opp for opp in opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
+                randomized = True
+                fallback_label = "no-skills"
+            except Exception as e:
+                print(f"DEBUG: Error executing query in search_opportunities: {e}")
+                print(f"DEBUG: Query: {base_query}")
+                print(f"DEBUG: Params: {base_params}")
+                opportunities = []
+                randomized = True
+                fallback_label = "error"
+        else:
+            opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, base_query, base_params, skill_fields, debug_label="opportunities")
+            
+        # If we have keywords but no skills, also score by keyword relevance
+        if keyword and not used_skills and opportunities:
+            scored_opportunities = []
+            for opp in opportunities:
+                score = 0
+                opp_text = f"{opp.get('title', '')} {opp.get('description', '')} {opp.get('organization_name', '')} {opp.get('location', '')}".lower()
+                keyword_lower = keyword.lower()
+                
+                # Exact word match gets highest score
+                if f" {keyword_lower} " in f" {opp_text} " or opp_text.startswith(keyword_lower) or opp_text.endswith(keyword_lower):
+                    score += 10
+                # Partial match gets medium score
+                elif keyword_lower in opp_text:
+                    score += 5
+                # Title match gets bonus points
+                if keyword_lower in opp.get('title', '').lower():
+                    score += 3
+                # Organization name match gets bonus points
+                if keyword_lower in opp.get('organization_name', '').lower():
+                    score += 2
+                
+                scored_opportunities.append((opp, score))
+            
+            # Sort by score (highest first)
+            scored_opportunities.sort(key=lambda x: (-x[1], x[0].get('title', '')))
+            opportunities = [opp for opp, score in scored_opportunities]
+            randomized = False
+            fallback_label = "keyword-scored"
     connection.close()
     # If still empty, use ChatGPT to generate events (not just volunteer opps) for event types
+    # Initialize variables
+    randomized = False
+    fallback_label = None
+    
     if event_only_mode and not opportunities and include_types:
         keyword_part = f". Every event must be directly about '{keyword}' and the keyword must appear as a whole word in the event's title or description." if keyword else ""
         chatgpt_prompt = f"Generate 5 real or plausible events (not just volunteer opportunities) in {search_city} for the following types: {', '.join(include_types)}{keyword_part} For each event, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nState: [State]\nLocation: [Location]\nDuration: [Duration]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each event with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."
@@ -537,9 +648,13 @@ def search_opportunities():
             # If still no results, show a user-friendly message
             if not opportunities:
                 return render_template("opportunities.html", opportunities=[], randomized=False, rare_message=None, event_only_mode=event_only_mode, error_message="No events found for your search. Try a different keyword or event type.")
+    
     rare_message = None
     if not event_only_mode and fallback_label == "random":
         rare_message = "That's quite a specialty, a rare one!"
+    print(f"DEBUG: Final opportunities count: {len(opportunities)}")
+    print(f"DEBUG: Search city: {search_city}")
+    print(f"DEBUG: Keyword: {keyword}")
     return render_template("opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode)
 
 @app.route("/fetch_opportunities_background", methods=["POST"])
@@ -711,12 +826,14 @@ def init_db():
             password TEXT NOT NULL,
             emailaddress TEXT UNIQUE NOT NULL,
             name TEXT,
+            dateOfBirth TEXT,
             dateJoined TEXT,
             city TEXT,
             state TEXT,
             phone TEXT,
             saved_opportunities TEXT DEFAULT '[]',
             is_admin INTEGER DEFAULT 0,
+            resume BLOB,
             skills TEXT DEFAULT ''
         )
     """)
@@ -952,9 +1069,9 @@ def admin_dashboard():
     # User search logic
     search_query = request.args.get("search", "").strip()
     if search_query:
-        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, phone, dateJoined, saved_opportunities, is_admin, skills, birthday FROM users WHERE username LIKE ? ORDER BY id DESC", (f"%{search_query}%",))
+        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, phone, dateJoined, saved_opportunities, is_admin, skills, dateOfBirth, password FROM users WHERE username LIKE ? ORDER BY id DESC", (f"%{search_query}%",))
     else:
-        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, phone, dateJoined, saved_opportunities, is_admin, skills, birthday FROM users ORDER BY id DESC")
+        user_crsr.execute("SELECT id, username, emailAddress, name, city, state, phone, dateJoined, saved_opportunities, is_admin, skills, dateOfBirth, password FROM users ORDER BY id DESC")
     users = [dict(row) for row in user_crsr.fetchall()]
 
     # Get stats
@@ -978,9 +1095,15 @@ def profile():
     user_connection = sqlite3.connect("users.db")
     user_connection.row_factory = sqlite3.Row
     user_crsr = user_connection.cursor()
-    # Ensure birthday column exists
+    # Ensure dateOfBirth column exists
     try:
-        user_crsr.execute("ALTER TABLE users ADD COLUMN birthday TEXT")
+        user_crsr.execute("ALTER TABLE users ADD COLUMN dateOfBirth TEXT")
+    except Exception:
+        pass
+    
+    # Ensure resume column exists
+    try:
+        user_crsr.execute("ALTER TABLE users ADD COLUMN resume BLOB")
     except Exception:
         pass
     # Fetch user info
@@ -997,7 +1120,7 @@ def profile():
         city = request.form.get("city", user["city"])
         state = request.form.get("state", user["state"])
         phone = request.form.get("phone", user["phone"])
-        birthday = request.form.get("birthday", user["birthday"] if "birthday" in user.keys() else None)
+        birthday = request.form.get("birthday", user["dateOfBirth"] if "dateOfBirth" in user.keys() else "")
         password = request.form.get("password", None)
         skills = request.form.get("skills", user["skills"] if "skills" in user.keys() else "")
         # Age validation
@@ -1031,8 +1154,8 @@ def profile():
         if phone != user["phone"]:
             update_fields.append("phone = ?")
             update_values.append(phone)
-        if birthday and (not user["birthday"] or birthday != user["birthday"]):
-            update_fields.append("birthday = ?")
+        if birthday and (not user["dateOfBirth"] or birthday != user["dateOfBirth"]):
+            update_fields.append("dateOfBirth = ?")
             update_values.append(birthday)
         if password and password != user["password"]:
             valid = checkUserPassword(user["username"], password)
@@ -1484,6 +1607,7 @@ def reset_users_db():
                 username TEXT NOT NULL,
                 password TEXT NOT NULL,
                 emailAddress TEXT NOT NULL,
+                dateOfBirth TEXT NOT NULL,
                 name TEXT NOT NULL,
                 city TEXT NOT NULL,
                 state TEXT NOT NULL,
@@ -1492,8 +1616,7 @@ def reset_users_db():
                 saved_opportunities TEXT DEFAULT '[]',
                 is_admin INTEGER DEFAULT 0,
                 resume BLOB,
-                skills TEXT DEFAULT '',
-                birthday TEXT
+                skills TEXT DEFAULT ''
             )
         ''')
         

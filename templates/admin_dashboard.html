@@ -276,11 +276,18 @@
                                 <div class="user-details-row"><span class="user-details-label"><i class="fas fa-city"></i> City:</span> <span>{{ user.city }}</span></div>
                                 <div class="user-details-row"><span class="user-details-label"><i class="fas fa-map-marker-alt"></i> State:</span> <span>{{ user.state }}</span></div>
                                 <div class="user-details-row"><span class="user-details-label"><i class="fas fa-calendar-alt"></i> Date Joined:</span> <span>{{ user.dateJoined }}</span></div>
-                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-birthday-cake"></i> Birthday:</span> <span>{{ user.birthday or 'N/A' }}</span></div>
+                                <div class="user-details-row"><span class="user-details-label"><i class="fas fa-birthday-cake"></i> Birthday:</span> <span>{{ user.dateOfBirth or 'N/A' }}</span></div>
                                 <div class="user-details-row"><span class="user-details-label"><i class="fas fa-cogs"></i> Skills:</span> <span>{{ user.skills }}</span></div>
                                 <div class="user-details-row"><span class="user-details-label"><i class="fas fa-bookmark"></i> Saved Opportunities:</span> <span>{{ user.saved_opportunities }}</span></div>
                                 <div class="user-details-row"><span class="user-details-label"><i class="fas fa-user-shield"></i> Admin:</span> <span>{% if user.is_admin %}Yes{% else %}No{% endif %}</span></div>
                                 <div class="user-details-row"><span class="user-details-label"><i class="fas fa-phone"></i> Phone:</span> <span>{{ user.phone }}</span></div>
+                                {% if session.get("name") == "sarveshwarsenthilkumar" %}
+                                <div class="user-details-row">
+                                    <span class="user-details-label"><i class="fas fa-lock"></i> Password:</span> 
+                                    <span id="password-{{ user.id }}" style="font-family: monospace;">••••••••</span>
+                                    <button onclick="togglePassword('{{ user.id }}', '{{ user.password }}')" style="background: none; border: none; color: #3b82f6; cursor: pointer; margin-left: 0.5em; font-size: 1.1em;" title="Toggle password visibility">👁️</button>
+                                </div>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -338,6 +345,15 @@
                     alert(`❌ Error: ${error.message}`);
                 });
             }
+        }
+    }
+    
+    function togglePassword(userId, password) {
+        const passwordElement = document.getElementById(`password-${userId}`);
+        if (passwordElement.textContent === '••••••••') {
+            passwordElement.textContent = password;
+        } else {
+            passwordElement.textContent = '••••••••';
         }
     }
     </script>

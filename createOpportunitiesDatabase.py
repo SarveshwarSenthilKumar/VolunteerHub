@@ -67,6 +67,7 @@ def create_users_database():
             name TEXT NOT NULL,
             city TEXT NOT NULL,
             state TEXT NOT NULL,
+            dateOfBirth TEXT NOT NULL,
             phone TEXT NOT NULL,
             dateJoined TEXT NOT NULL,
             saved_opportunities TEXT DEFAULT '[]',

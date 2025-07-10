@@ -382,6 +382,10 @@
 <div class="randomized-message" style="background:#23272a;color:#fbbf24;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;">
     Opportunities are shown in random order. Add your skills/interests in your <a href="/profile" style="color:#3b82f6;text-decoration:underline;">profile</a> for personalized matches!
 </div>
+{% else %}
+<div class="relevance-message" style="background:#1e3a8a;color:#93c5fd;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;">
+    <i class="fas fa-star"></i> Results ranked by relevance to your search
+</div>
 {% endif %}
 
 <h1>Find Opportunities</h1>
@@ -435,12 +439,6 @@
     </div>
     {% endif %}
 </section>
-
-{% if randomized %}
-<div class="randomized-message" style="background:#23272a;color:#fbbf24;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;">
-    Opportunities are shown in random order. Add your skills/interests in your <a href="/profile" style="color:#3b82f6;text-decoration:underline;">profile</a> for personalized matches!
-</div>
-{% endif %}
 
 {% if opportunities %}
     <div class="opportunities-grid">

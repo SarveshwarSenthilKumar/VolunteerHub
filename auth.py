@@ -64,7 +64,7 @@ def signup():
         phone_pattern = r'^(\+\d{1,3}[- ]?)?\d{10}$'
         if not re.match(phone_pattern, phone):
             return render_template('auth/signup.html', error='Please enter a valid phone number (10 digits, with optional country code).')
-        if not all([username, password, email, name, city, state, phone]):
+        if not all([username, password, email, date_of_birth, name, city, state, phone]):
             return render_template('auth/signup.html', error='Please fill in all fields')
         
         try:
@@ -90,12 +90,12 @@ def signup():
             # Insert new user
             insert_query = """
                 INSERT INTO users (
-                    username, password, emailAddress, name, city, state, phone,
+                    username, password, emailAddress, dateOfBirth, name, city, state, phone,
                     dateJoined, saved_opportunities
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             insert_values = (
-                username, password, email, name, city, state, phone,
+                username, password, email, date_of_birth, name, city, state, phone,
                 current_time, '[]'
             )
             crsr.execute(insert_query, insert_values)
