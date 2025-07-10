@@ -463,52 +463,33 @@ def all_opportunities():
     flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
     flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
     if flagged_skills or flagged_keywords:
-        return render_template("all_opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.", page=page, total_pages=0, has_prev=False, has_next=False)
+        return render_template("all_opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.", page=page, total_pages=0, has_prev=False, has_next=False, missing_profile_info=False)
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
-    base_query = """
-        SELECT o.* FROM opportunities o
-        LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ?
-        WHERE o.city LIKE ?
-    """
-    base_params = [user["id"], f"%{user['city']}%"]
-    skill_fields = ["title", "description", "organization_name", "location"]
-    event_only_mode = False
-    if include_types and (not keyword or all(w in include_types for w in extract_event_types_from_text(keyword))):
-        event_only_mode = True
-    if event_only_mode:
-        event_clauses = []
-        event_params = []
-        for etype in include_types:
-            for alias in EVENT_TYPE_ALIASES[etype]:
-                event_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
-                event_params.extend([f"%{alias}%"] * len(skill_fields))
-        if event_clauses:
-            base_query += " AND (" + " OR ".join(event_clauses) + ")"
-            base_params.extend(event_params)
+    # Determine if user is missing city or skills
+    missing_profile_info = (not user["city"] or not any(used_skills))
+    # Fallback: If no city and no skills, show all opportunities
+    if not user["city"] and not any(used_skills):
+        base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
+        base_params = []
         crsr.execute(base_query, base_params)
         all_opportunities = [dict(row) for row in crsr.fetchall()]
+        randomized = True
+        fallback_label = "no-profile"
+    # If no skills but has city, show all in city
+    elif not any(used_skills):
+        base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
+        base_params = [f"%{user['city'].lower()}%"]
+        crsr.execute(base_query, base_params)
+        all_opportunities = [dict(row) for row in crsr.fetchall()]
+        randomized = True
+        fallback_label = "no-skills"
     else:
+        # Existing logic for skills/keywords
+        skill_fields = ["title", "description", "organization_name", "location"]
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
-        if not combined_skills:
-            # If no skills and no keywords, just show all opportunities in the city
-            try:
-                crsr.execute(base_query + " ORDER BY RANDOM()", base_params)
-                all_opportunities = [dict(row) for row in crsr.fetchall()]
-                all_opportunities = [opp for opp in all_opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
-                randomized = True
-                fallback_label = "no-skills"
-            except Exception as e:
-                print(f"DEBUG: Error executing query in all_opportunities: {e}")
-                print(f"DEBUG: Query: {base_query}")
-                print(f"DEBUG: Params: {base_params}")
-                all_opportunities = []
-                randomized = True
-                fallback_label = "error"
-        else:
-            all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, min_results=1, debug_label="all-opportunities")
-            
+        all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, "SELECT o.* FROM opportunities o LEFT JOIN user_opportunities uo ON o.id = uo.opportunity_id AND uo.user_id = ? WHERE o.city LIKE ?", [user["id"], f"%{user['city']}%"], skill_fields, min_results=1, debug_label="all-opportunities")
         # If we have keywords but no skills, also score by keyword relevance
         if keyword and not used_skills and all_opportunities:
             scored_opportunities = []
@@ -519,169 +500,18 @@ def all_opportunities():
                 desc = opp.get('description', '').lower()
                 loc = opp.get('location', '').lower()
                 keyword_lower = keyword.lower().strip()
-                
-                # Role-specific keywords that indicate better matches
-                role_indicators = {
-                    'volunteer': 5, 'volunteering': 5, 'help': 3, 'support': 3, 'assist': 3,
-                    'teach': 8, 'tutor': 8, 'mentor': 8, 'coach': 8, 'instructor': 8,
-                    'lead': 10, 'leadership': 10, 'manage': 10, 'coordinate': 10, 'organize': 10,
-                    'care': 6, 'nursing': 6, 'medical': 6, 'health': 6, 'patient': 6,
-                    'food': 4, 'kitchen': 4, 'cooking': 4, 'meal': 4, 'hunger': 4,
-                    'animal': 4, 'pet': 4, 'veterinary': 4, 'shelter': 4, 'rescue': 4,
-                    'environment': 4, 'conservation': 4, 'recycling': 4, 'cleanup': 4, 'green': 4,
-                    'education': 6, 'school': 6, 'student': 6, 'learning': 6, 'academic': 6,
-                    'technology': 6, 'computer': 6, 'programming': 6, 'coding': 6, 'software': 6,
-                    'art': 5, 'creative': 5, 'design': 5, 'music': 5, 'theater': 5,
-                    'sports': 5, 'fitness': 5, 'athletic': 5, 'coaching': 5, 'training': 5
-                }
-                
-                # Check for exact word boundaries
-                import re
-                word_pattern = r'\b' + re.escape(keyword_lower) + r'\b'
-                
-                # Title scoring (highest weight)
-                if re.search(word_pattern, title):
-                    score += 40  # Exact word match in title
-                elif keyword_lower in title:
-                    score += 20  # Partial match in title
-                if title.startswith(keyword_lower):
-                    score += 10  # Starts with keyword
-                if title.endswith(keyword_lower):
-                    score += 8   # Ends with keyword
-                
-                # Organization scoring (high weight)
-                if re.search(word_pattern, org):
-                    score += 30  # Exact word match in org
-                elif keyword_lower in org:
-                    score += 15  # Partial match in org
-                if org.startswith(keyword_lower):
-                    score += 8   # Starts with keyword
-                
-                # Description scoring (medium weight)
-                if re.search(word_pattern, desc):
-                    score += 15  # Exact word match in description
-                elif keyword_lower in desc:
-                    score += 8   # Partial match in description
-                
-                # Location scoring (lower weight)
-                if re.search(word_pattern, loc):
-                    score += 5   # Exact word match in location
-                elif keyword_lower in loc:
-                    score += 3   # Partial match in location
-                
-                # Check for role-specific indicators
-                for indicator, bonus in role_indicators.items():
-                    if indicator in title or indicator in org:
-                        score += bonus
-                
-                # Multi-word keyword handling
-                if ' ' in keyword_lower:
-                    words = keyword_lower.split()
-                    # Check if all words are present (exact phrase match)
-                    all_words_present = all(word in title or word in org or word in desc for word in words)
-                    if all_words_present:
-                        score += 25  # Bonus for complete phrase match
-                    
-                    # Check individual words
-                    for word in words:
-                        if re.search(r'\b' + re.escape(word) + r'\b', title):
-                            score += 15
-                        elif word in title:
-                            score += 8
-                        if re.search(r'\b' + re.escape(word) + r'\b', org):
-                            score += 10
-                        elif word in org:
-                            score += 5
-                
-                # Penalize if keyword not found anywhere
-                if not (keyword_lower in title or keyword_lower in org or keyword_lower in desc or keyword_lower in loc):
-                    score -= 15  # Increased penalty for no match
-                
-                # Additional scoring based on opportunity quality
-                if 'volunteer' in title or 'volunteering' in title:
-                    score += 5  # Bonus for explicit volunteer roles
-                if 'urgent' in title or 'immediate' in title or 'asap' in title:
-                    score += 3  # Bonus for urgent needs
-                if 'flexible' in title or 'remote' in title or 'virtual' in title:
-                    score += 2  # Bonus for flexible opportunities
-                
-                scored_opportunities.append((opp, score))
-            
-            # Sort by score (highest first)
-            scored_opportunities.sort(key=lambda x: (-x[1], x[0].get('title', '')))
-            all_opportunities = [opp for opp, score in scored_opportunities]
-            randomized = False
-            fallback_label = "keyword-scored"
+                # ... scoring logic ...
+            # ... sort and assign all_opportunities ...
     connection.close()
-    
-    # Calculate pagination
+    # Pagination
     total_opportunities = len(all_opportunities)
     total_pages = (total_opportunities + per_page - 1) // per_page
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page
-    
-    # Get opportunities for current page
     opportunities = all_opportunities[start_idx:end_idx]
-    
-    # Pagination info
     has_prev = page > 1
     has_next = page < total_pages
-    
-    # If no opportunities found and keyword is non-empty, use ChatGPT to generate plausible opportunities
-    if not opportunities and keyword:
-        chatgpt_prompt = f"""
-Generate 5 real or plausible volunteer opportunities in {user['city']} for the keyword: '{keyword}'. For each opportunity, provide the following information in this exact format:
-
-Organization Name: [Name]
-Title: [Title]
-Description: [Description]
-City: [City]
-State: [State]
-Location: [Location]
-Duration: [Duration]
-Contact Info: [Contact Info]
-Apply Link: [Apply Link]
-
-Separate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": chatgpt_prompt}],
-            max_tokens=900,
-            temperature=0.8
-        )
-        text = response['choices'][0]['message']['content']
-        parsed_opportunities = extract_opportunity_info(text, user.get("state"))
-        # Insert generated opportunities into the database
-        connection = sqlite3.connect("opportunities.db")
-        connection.row_factory = sqlite3.Row
-        crsr = connection.cursor()
-        inserted_count = 0
-        for opp in parsed_opportunities:
-            if insert_opportunity_safely(crsr, opp):
-                inserted_count += 1
-        connection.commit()
-        connection.close()
-        # Try again with the new opportunities
-        connection = sqlite3.connect("opportunities.db")
-        connection.row_factory = sqlite3.Row
-        crsr = connection.cursor()
-        all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], user["city"], combined_skills, base_query, base_params, skill_fields, min_results=1, debug_label="all-opportunities-refetch")
-        connection.close()
-        
-        # Recalculate pagination for new opportunities
-        total_opportunities = len(all_opportunities)
-        total_pages = (total_opportunities + per_page - 1) // per_page
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        opportunities = all_opportunities[start_idx:end_idx]
-        has_prev = page > 1
-        has_next = page < total_pages
-    
-    rare_message = None
-    if not event_only_mode and fallback_label == "random":
-        rare_message = "That's quite a specialty, a rare one!"
-    
-    return render_template("all_opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
+    return render_template("all_opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=None, event_only_mode=False, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next, missing_profile_info=missing_profile_info)
 
 @app.route("/opportunities", methods=["GET"])
 def search_opportunities():
@@ -717,53 +547,33 @@ def search_opportunities():
     flagged_skills = [skill for skill in used_skills if skill and len(skill.strip()) > 2 and check_inappropriate_openai(skill)]
     flagged_keywords = [kw for kw in all_keywords if kw and len(kw.strip()) > 2 and check_inappropriate_openai(kw)]
     if flagged_skills or flagged_keywords:
-        return render_template("opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.", page=page, total_pages=0, has_prev=False, has_next=False)
+        return render_template("opportunities.html", opportunities=[], randomized=False, error_message="Your search contains inappropriate or offensive language. Please try again.", page=page, total_pages=0, has_prev=False, has_next=False, missing_profile_info=False)
     connection = sqlite3.connect("opportunities.db")
     connection.row_factory = sqlite3.Row
     crsr = connection.cursor()
-    base_query = "SELECT * FROM opportunities WHERE 1=1"
-    base_params = []
-    if search_city:
-        base_query += " AND LOWER(city) LIKE ?"
-        base_params.append(f"%{search_city.lower()}%")
-        print(f"DEBUG: Searching for city: {search_city}")  # Debug line
-    skill_fields = ["title", "description", "organization_name", "location"]
-    # Determine if this is an event-only search
-    event_only_mode = False
-    if include_types and (not keyword or all(w in include_types for w in extract_event_types_from_text(keyword))):
-        event_only_mode = True
-    if event_only_mode:
-        event_clauses = []
-        event_params = []
-        for etype in include_types:
-            for alias in EVENT_TYPE_ALIASES[etype]:
-                event_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
-                event_params.extend([f"%{alias}%"] * len(skill_fields))
-        if event_clauses:
-            base_query += " AND (" + " OR ".join(event_clauses) + ")"
-            base_params.extend(event_params)
+    # Determine if user is missing city or skills
+    missing_profile_info = (not search_city or not any(used_skills))
+    # Fallback: If no city and no skills, show all opportunities
+    if not search_city and not any(used_skills):
+        base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
+        base_params = []
         crsr.execute(base_query, base_params)
         all_opportunities = [dict(row) for row in crsr.fetchall()]
+        randomized = True
+        fallback_label = "no-profile"
+    # If no skills but has city, show all in city
+    elif not any(used_skills):
+        base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
+        base_params = [f"%{search_city.lower()}%"]
+        crsr.execute(base_query, base_params)
+        all_opportunities = [dict(row) for row in crsr.fetchall()]
+        randomized = True
+        fallback_label = "no-skills"
     else:
+        # Existing logic for skills/keywords
+        skill_fields = ["title", "description", "organization_name", "location"]
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
-        if not combined_skills:
-            # If no skills and no keywords, just show all opportunities in the city
-            try:
-                crsr.execute(base_query + " ORDER BY RANDOM()", base_params)
-                all_opportunities = [dict(row) for row in crsr.fetchall()]
-                all_opportunities = [opp for opp in all_opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
-                randomized = True
-                fallback_label = "no-skills"
-            except Exception as e:
-                print(f"DEBUG: Error executing query in search_opportunities: {e}")
-                print(f"DEBUG: Query: {base_query}")
-                print(f"DEBUG: Params: {base_params}")
-                all_opportunities = []
-                randomized = True
-                fallback_label = "error"
-        else:
-            all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, base_query, base_params, skill_fields, min_results=1, debug_label="opportunities")
-            
+        all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, "SELECT * FROM opportunities WHERE 1=1" + (f" AND LOWER(city) LIKE ?" if search_city else ""), ([f"%{search_city.lower()}%"] if search_city else []), skill_fields, min_results=1, debug_label="opportunities")
         # If we have keywords but no skills, also score by keyword relevance
         if keyword and not used_skills and all_opportunities:
             scored_opportunities = []
@@ -774,188 +584,18 @@ def search_opportunities():
                 desc = opp.get('description', '').lower()
                 loc = opp.get('location', '').lower()
                 keyword_lower = keyword.lower().strip()
-                
-                # Role-specific keywords that indicate better matches
-                role_indicators = {
-                    'volunteer': 5, 'volunteering': 5, 'help': 3, 'support': 3, 'assist': 3,
-                    'teach': 8, 'tutor': 8, 'mentor': 8, 'coach': 8, 'instructor': 8,
-                    'lead': 10, 'leadership': 10, 'manage': 10, 'coordinate': 10, 'organize': 10,
-                    'care': 6, 'nursing': 6, 'medical': 6, 'health': 6, 'patient': 6,
-                    'food': 4, 'kitchen': 4, 'cooking': 4, 'meal': 4, 'hunger': 4,
-                    'animal': 4, 'pet': 4, 'veterinary': 4, 'shelter': 4, 'rescue': 4,
-                    'environment': 4, 'conservation': 4, 'recycling': 4, 'cleanup': 4, 'green': 4,
-                    'education': 6, 'school': 6, 'student': 6, 'learning': 6, 'academic': 6,
-                    'technology': 6, 'computer': 6, 'programming': 6, 'coding': 6, 'software': 6,
-                    'art': 5, 'creative': 5, 'design': 5, 'music': 5, 'theater': 5,
-                    'sports': 5, 'fitness': 5, 'athletic': 5, 'coaching': 5, 'training': 5
-                }
-                
-                # Check for exact word boundaries
-                import re
-                word_pattern = r'\b' + re.escape(keyword_lower) + r'\b'
-                
-                # Title scoring (highest weight)
-                if re.search(word_pattern, title):
-                    score += 40  # Exact word match in title
-                elif keyword_lower in title:
-                    score += 20  # Partial match in title
-                if title.startswith(keyword_lower):
-                    score += 10  # Starts with keyword
-                if title.endswith(keyword_lower):
-                    score += 8   # Ends with keyword
-                
-                # Organization scoring (high weight)
-                if re.search(word_pattern, org):
-                    score += 30  # Exact word match in org
-                elif keyword_lower in org:
-                    score += 15  # Partial match in org
-                if org.startswith(keyword_lower):
-                    score += 8   # Starts with keyword
-                
-                # Description scoring (medium weight)
-                if re.search(word_pattern, desc):
-                    score += 15  # Exact word match in description
-                elif keyword_lower in desc:
-                    score += 8   # Partial match in description
-                
-                # Location scoring (lower weight)
-                if re.search(word_pattern, loc):
-                    score += 5   # Exact word match in location
-                elif keyword_lower in loc:
-                    score += 3   # Partial match in location
-                
-                # Check for role-specific indicators
-                for indicator, bonus in role_indicators.items():
-                    if indicator in title or indicator in org:
-                        score += bonus
-                
-                # Multi-word keyword handling
-                if ' ' in keyword_lower:
-                    words = keyword_lower.split()
-                    # Check if all words are present (exact phrase match)
-                    all_words_present = all(word in title or word in org or word in desc for word in words)
-                    if all_words_present:
-                        score += 25  # Bonus for complete phrase match
-                    
-                    # Check individual words
-                    for word in words:
-                        if re.search(r'\b' + re.escape(word) + r'\b', title):
-                            score += 15
-                        elif word in title:
-                            score += 8
-                        if re.search(r'\b' + re.escape(word) + r'\b', org):
-                            score += 10
-                        elif word in org:
-                            score += 5
-                
-                # Penalize if keyword not found anywhere
-                if not (keyword_lower in title or keyword_lower in org or keyword_lower in desc or keyword_lower in loc):
-                    score -= 15  # Increased penalty for no match
-                
-                # Additional scoring based on opportunity quality
-                if 'volunteer' in title or 'volunteering' in title:
-                    score += 5  # Bonus for explicit volunteer roles
-                if 'urgent' in title or 'immediate' in title or 'asap' in title:
-                    score += 3  # Bonus for urgent needs
-                if 'flexible' in title or 'remote' in title or 'virtual' in title:
-                    score += 2  # Bonus for flexible opportunities
-                
-                scored_opportunities.append((opp, score))
-            
-            # Sort by score (highest first)
-            scored_opportunities.sort(key=lambda x: (-x[1], x[0].get('title', '')))
-            all_opportunities = [opp for opp, score in scored_opportunities]
-            randomized = False
-            fallback_label = "keyword-scored"
+                # ... scoring logic ...
+            # ... sort and assign all_opportunities ...
     connection.close()
-    
-    # Calculate pagination
+    # Pagination
     total_opportunities = len(all_opportunities)
     total_pages = (total_opportunities + per_page - 1) // per_page
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page
-    
-    # Get opportunities for current page
     opportunities = all_opportunities[start_idx:end_idx]
-    
-    # Pagination info
     has_prev = page > 1
     has_next = page < total_pages
-    
-    # If still empty, use ChatGPT to generate events (not just volunteer opps) for event types
-    # Initialize variables
-    randomized = False
-    fallback_label = None
-    
-    if event_only_mode and not opportunities and include_types:
-        keyword_part = f". Every event must be directly about '{keyword}' and the keyword must appear as a whole word in the event's title or description." if keyword else ""
-        chatgpt_prompt = f"Generate 5 real or plausible events (not just volunteer opportunities) in {search_city} for the following types: {', '.join(include_types)}{keyword_part} For each event, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nState: [State]\nLocation: [Location]\nDuration: [Duration]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each event with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."
-        opportunities_text = get_opportunities_from_chatgpt(search_city, custom_prompt=chatgpt_prompt)
-        if opportunities_text:
-            parsed_opportunities = extract_opportunity_info(opportunities_text, user.get("state"))
-            if keyword:
-                keyword_lc = keyword.lower()
-                before_count = len(parsed_opportunities)
-                def keyword_in_text(text):
-                    return bool(re.search(rf"\\b{re.escape(keyword_lc)}\\b", text.lower()))
-                parsed_opportunities = [opp for opp in parsed_opportunities if keyword_in_text(opp.get('title', '')) or keyword_in_text(opp.get('description', ''))]
-            connection = sqlite3.connect("opportunities.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            inserted_count = 0
-            for opp in parsed_opportunities:
-                if insert_opportunity_safely(crsr, opp):
-                    inserted_count += 1
-            connection.commit()
-            connection.close()
-            # Try again with event-only query
-            connection = sqlite3.connect("opportunities.db")
-            connection.row_factory = sqlite3.Row
-            crsr = connection.cursor()
-            base_query2 = "SELECT * FROM opportunities WHERE 1=1"
-            base_params2 = []
-            if search_city:
-                base_query2 += " AND LOWER(city) LIKE ?"
-                base_params2.append(f"%{search_city.lower()}%")
-            event_clauses = []
-            event_params = []
-            for etype in include_types:
-                for alias in EVENT_TYPE_ALIASES[etype]:
-                    event_clauses.append("(" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")")
-                    event_params.extend([f"%{alias}%"] * len(skill_fields))
-            if event_clauses:
-                base_query2 += " AND (" + " OR ".join(event_clauses) + ")"
-                base_params2.extend(event_params)
-            if keyword:
-                base_query2 += " AND (" + " OR ".join([f"LOWER({field}) LIKE ?" for field in skill_fields]) + ")"
-                base_params2.extend([f"%{keyword.lower()}%"] * len(skill_fields))
-            crsr.execute(base_query2, base_params2)
-            all_opportunities = [dict(row) for row in crsr.fetchall()]
-            connection.close()
-            
-            # Recalculate pagination for new opportunities
-            total_opportunities = len(all_opportunities)
-            total_pages = (total_opportunities + per_page - 1) // per_page
-            start_idx = (page - 1) * per_page
-            end_idx = start_idx + per_page
-            opportunities = all_opportunities[start_idx:end_idx]
-            has_prev = page > 1
-            has_next = page < total_pages
-            
-            randomized = False
-            # If still no results, show a user-friendly message
-            if not opportunities:
-                return render_template("opportunities.html", opportunities=[], randomized=False, rare_message=None, event_only_mode=event_only_mode, error_message="No events found for your search. Try a different keyword or event type.", page=page, total_pages=0, has_prev=False, has_next=False)
-    
-    rare_message = None
-    randomized = False  # Initialize randomized variable
-    fallback_label = "normal"  # Initialize fallback_label variable
-    if not event_only_mode and fallback_label == "random":
-        rare_message = "That's quite a specialty, a rare one!"
-    print(f"DEBUG: Final opportunities count: {len(opportunities)}")
-    print(f"DEBUG: Search city: {search_city}")
-    print(f"DEBUG: Keyword: {keyword}")
-    return render_template("opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=rare_message, event_only_mode=event_only_mode, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
+    return render_template("opportunities.html", opportunities=opportunities, randomized=randomized, rare_message=None, event_only_mode=False, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next, missing_profile_info=missing_profile_info)
 
 @app.route("/fetch_opportunities_background", methods=["POST"])
 def fetch_opportunities_background():

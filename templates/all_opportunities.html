@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<style>
+    .profile-tip {
+        background: #23272a;
+        color: #3b82f6;
+        padding: 1rem 1.5rem;
+        border-radius: 1rem;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.08em;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+{% if missing_profile_info %}
+    <div class="profile-tip">
+        For the best matches, add your <a href="/profile" style="color:#06b6d4;text-decoration:underline;">city</a> and <a href="/profile" style="color:#06b6d4;text-decoration:underline;">interests/skills</a> to your profile!
+    </div>
+{% endif %}
 <div class="opportunities-container">
     {% if event_only_mode %}
     <div class="event-only-message" style="background:#23272a;color:#3b82f6;padding:1rem 1.5rem;border-radius:1rem;margin-bottom:1.5rem;text-align:center;font-weight:700;">
