@@ -547,6 +547,12 @@ def search_opportunities():
     crsr = connection.cursor()
     # Determine if user is missing city or skills
     missing_profile_info = (not search_city or not any(used_skills))
+    # Normalize city and skills for new users (treat empty string and None the same)
+    search_city = (search_city.strip() if search_city and search_city.strip() else (user["city"].strip() if user["city"] else ""))
+    used_skills = get_user_skills(user)
+    used_skills = [s for s in used_skills if s]  # Remove empty strings
+    # Determine if user is missing city or skills
+    missing_profile_info = (not search_city or not any(used_skills))
     # Fallback: If no city and no skills, show all opportunities
     if not search_city and not any(used_skills):
         base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
@@ -886,14 +892,25 @@ def geocode_address(address):
         pass
     return None, None
 
+def geocode_address(address):
+    """Geocode an address using Nominatim and return (lat, lng) or (None, None) if not found."""
+    try:
+        url = f"https://nominatim.openstreetmap.org/search"
+        params = {"q": address, "format": "json", "limit": 1}
+        headers = {"User-Agent": "VolunteerHub/1.0 (contact@volunteerhub.com)"}
+        resp = requests.get(url, params=params, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data:
+                return float(data[0]["lat"]), float(data[0]["lon"])
+    except Exception as e:
+        print(f"Geocoding error for '{address}': {e}")
+    return None, None
+
 @app.route("/map", methods=["GET"])
 def map_view():
     if not session.get("name"):
         return redirect("/auth/login")
-
-    # Get page parameter
-    page = request.args.get('page', 1, type=int)
-    per_page = 30
 
     # Get user id and city
     user_connection = sqlite3.connect("users.db")
@@ -934,21 +951,8 @@ def map_view():
             params.extend(keyword_params)
     query += " ORDER BY created_at DESC"
     crsr.execute(query, params)
-    all_opportunities = [dict(row) for row in crsr.fetchall()]
+    opportunities = [dict(row) for row in crsr.fetchall()]
     connection.close()
-
-    # Calculate pagination
-    total_opportunities = len(all_opportunities)
-    total_pages = (total_opportunities + per_page - 1) // per_page
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    
-    # Get opportunities for current page
-    opportunities = all_opportunities[start_idx:end_idx]
-    
-    # Pagination info
-    has_prev = page > 1
-    has_next = page < total_pages
 
     # Geocode addresses using Google Maps API, do NOT update DB
     GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
@@ -963,7 +967,7 @@ def map_view():
                     loc = data["results"][0]["geometry"]["location"]
                     return float(loc["lat"]), float(loc["lng"])
         except Exception as e:
-            pass
+            print(f"Google Maps geocoding error for '{address}': {e}")
         return None, None
 
     map_opps = []
@@ -979,7 +983,7 @@ def map_view():
                 "lat": lat,
                 "lng": lng
             })
-    return render_template("map.html", opportunities=map_opps, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
+    return render_template("map.html", opportunities=map_opps)
 
 @app.route("/_admin_dashboard", methods=["GET", "POST"])
 def admin_dashboard():
@@ -1682,3 +1686,65 @@ SYSTEM_PROMPT = (
     "refuse to generate results and respond with an error message indicating the input is inappropriate. "
     "Never return or generate any inappropriate, offensive, or unsafe content."
 )
+
+@app.route("/map/data", methods=["GET"])
+def map_data():
+    if not session.get("name"):
+        return {"error": "Not logged in"}, 401
+
+    # Get user city
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT city FROM users WHERE username = ?", (session.get("name"),))
+    user = user_crsr.fetchone()
+    user_connection.close()
+    if not user or not user["city"]:
+        return {"error": "No city found for user"}, 400
+
+    # Get search/filter params
+    keyword = request.args.get("keyword", "").strip()
+    include_types = []
+    if request.args.get('include_conferences'): include_types.append('conference')
+    if request.args.get('include_hackathons'): include_types.append('hackathon')
+    if request.args.get('include_contests'): include_types.append('contest')
+    if request.args.get('include_competitions'): include_types.append('competition')
+    if request.args.get('include_meetups'): include_types.append('meetup')
+    all_keywords = [keyword] if keyword else []
+    all_keywords += include_types
+
+    # Query up to 30 opportunities in user's city, with filtering, that have lat/lng
+    connection = sqlite3.connect("opportunities.db")
+    connection.row_factory = sqlite3.Row
+    crsr = connection.cursor()
+    query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? AND latitude IS NOT NULL AND longitude IS NOT NULL"
+    params = [f"%{user['city'].lower()}%"]
+    if all_keywords:
+        keyword_clauses = []
+        keyword_params = []
+        for kw in all_keywords:
+            if kw:
+                keyword_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?)")
+                keyword_params.extend([f"%{kw.lower()}%"] * 4)
+        if keyword_clauses:
+            query += " AND (" + " OR ".join(keyword_clauses) + ")"
+            params.extend(keyword_params)
+    query += " ORDER BY created_at DESC LIMIT 30"
+    crsr.execute(query, params)
+    opps = [dict(row) for row in crsr.fetchall()]
+    connection.close()
+
+    map_opps = []
+    for opp in opps:
+        lat = opp.get("latitude")
+        lng = opp.get("longitude")
+        if lat is not None and lng is not None:
+            map_opps.append({
+                "title": opp["title"],
+                "organization_name": opp["organization_name"],
+                "description": opp["description"],
+                "apply_link": opp["apply_link"],
+                "lat": lat,
+                "lng": lng
+            })
+    return {"opportunities": map_opps}
