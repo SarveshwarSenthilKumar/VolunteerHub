@@ -1530,7 +1530,7 @@ Resume:
         # Re-fetch user after update
         user_crsr.execute("SELECT * FROM users WHERE username = ?", (session.get("name"),))
         user = user_crsr.fetchone()
-    has_resume = user.get("resume") is not None
+    has_resume = user["resume"] is not None
     user_connection.close()
     return render_template("profile.html", user=user, has_resume=has_resume, message=message)
 
