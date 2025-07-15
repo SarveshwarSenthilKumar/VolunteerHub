@@ -1,3 +1,5 @@
+# VolunteerHub backend API entry point
+# Registers API blueprints and enables CORS
 from flask import Flask
 from flask_cors import CORS
 from routes.auth import auth_bp

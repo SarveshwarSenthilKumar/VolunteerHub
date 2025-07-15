@@ -1,3 +1,4 @@
+# Script to reset the opportunities database for VolunteerHub
 import sqlite3
 
 conn = sqlite3.connect('opportunities.db')
