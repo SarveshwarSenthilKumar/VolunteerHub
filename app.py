@@ -18,6 +18,7 @@ from SarvAuth import checkUserPassword
 from werkzeug.utils import secure_filename
 import pdfplumber
 import difflib
+import threading
 
 app = Flask(__name__)
 
@@ -129,14 +130,14 @@ def filter_generic_skills(skills):
 def get_best_opportunities_with_label(crsr, user_id, city, skills, base_query, base_params, skill_fields, min_results=1, debug_label=""):
     # If no skills, just show all matching opportunities (no skill filter)
     if not skills:
-        query = base_query + " ORDER BY RANDOM()"
+        query = base_query + " ORDER BY created_at DESC"
         crsr.execute(query, base_params)
         results = [dict(row) for row in crsr.fetchall()]
         results = [opp for opp in results if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
         return results, True, "no-skills"
     
     # Get all opportunities that match the base criteria
-    query = base_query + " ORDER BY RANDOM()"
+    query = base_query + " ORDER BY created_at DESC"
     crsr.execute(query, base_params)
     all_opportunities = [dict(row) for row in crsr.fetchall()]
     all_opportunities = [opp for opp in all_opportunities if all(opp.get(field) for field in ["title", "organization_name", "description", "location", "apply_link"])]
@@ -164,7 +165,6 @@ def get_best_opportunities_with_label(crsr, user_id, city, skills, base_query, b
             'environment': 4, 'conservation': 4, 'recycling': 4, 'cleanup': 4, 'green': 4,
             'education': 6, 'school': 6, 'student': 6, 'learning': 6, 'academic': 6,
             'technology': 6, 'computer': 6, 'programming': 6, 'coding': 6, 'software': 6,
-            'art': 5, 'creative': 5, 'design': 5, 'music': 5, 'theater': 5,
             'sports': 5, 'fitness': 5, 'athletic': 5, 'coaching': 5, 'training': 5
         }
         
@@ -473,24 +473,36 @@ def all_opportunities():
     missing_profile_info = (not user["city"] or not any(used_skills))
     # Fallback: If no city and no skills, show all opportunities
     if not user["city"] and not any(used_skills):
-        base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
-        base_params = []
-        print(f"[DEBUG] Query: {base_query}, Params: {base_params}")
-        crsr.execute(base_query, base_params)
-        all_opportunities = [dict(row) for row in crsr.fetchall()]
-        print(f"[DEBUG] Results found: {len(all_opportunities)}")
-        randomized = True
-        fallback_label = "no-profile"
+        if keyword:
+            base_query = "SELECT * FROM opportunities WHERE (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?) ORDER BY created_at DESC"
+            base_params = [f"%{keyword.lower()}%"] * 4
+            crsr.execute(base_query, base_params)
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
+            randomized = False
+            fallback_label = "keyword-only"
+        else:
+            base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
+            base_params = []
+            crsr.execute(base_query, base_params)
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
+            randomized = True
+            fallback_label = "no-profile"
     # If no skills but has city, show all in city
     elif not any(used_skills):
-        base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
-        base_params = [f"%{user['city'].lower()}%"]
-        print(f"[DEBUG] Query: {base_query}, Params: {base_params}")
-        crsr.execute(base_query, base_params)
-        all_opportunities = [dict(row) for row in crsr.fetchall()]
-        print(f"[DEBUG] Results found: {len(all_opportunities)}")
-        randomized = True
-        fallback_label = "no-skills"
+        if keyword:
+            base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?) ORDER BY created_at DESC"
+            base_params = [f"%{user['city'].lower()}%"] + [f"%{keyword.lower()}%"] * 4
+            crsr.execute(base_query, base_params)
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
+            randomized = False
+            fallback_label = "city-keyword"
+        else:
+            base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
+            base_params = [f"%{user['city'].lower()}%"]
+            crsr.execute(base_query, base_params)
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
+            randomized = True
+            fallback_label = "no-skills"
     else:
         # Existing logic for skills/keywords
         skill_fields = ["title", "description", "organization_name", "location"]
@@ -557,20 +569,36 @@ def search_opportunities():
     missing_profile_info = (not search_city or not any(used_skills))
     # Fallback: If no city and no skills, show all opportunities
     if not search_city and not any(used_skills):
-        base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
-        base_params = []
-        crsr.execute(base_query, base_params)
-        all_opportunities = [dict(row) for row in crsr.fetchall()]
-        randomized = True
-        fallback_label = "no-profile"
+        if keyword:
+            base_query = "SELECT * FROM opportunities WHERE (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?) ORDER BY created_at DESC"
+            base_params = [f"%{keyword.lower()}%"] * 4
+            crsr.execute(base_query, base_params)
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
+            randomized = False
+            fallback_label = "keyword-only"
+        else:
+            base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
+            base_params = []
+            crsr.execute(base_query, base_params)
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
+            randomized = True
+            fallback_label = "no-profile"
     # If no skills but has city, show all in city
     elif not any(used_skills):
-        base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
-        base_params = [f"%{search_city.lower()}%"]
-        crsr.execute(base_query, base_params)
-        all_opportunities = [dict(row) for row in crsr.fetchall()]
-        randomized = True
-        fallback_label = "no-skills"
+        if keyword:
+            base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(organization_name) LIKE ? OR LOWER(location) LIKE ?) ORDER BY created_at DESC"
+            base_params = [f"%{search_city.lower()}%"] + [f"%{keyword.lower()}%"] * 4
+            crsr.execute(base_query, base_params)
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
+            randomized = False
+            fallback_label = "city-keyword"
+        else:
+            base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
+            base_params = [f"%{search_city.lower()}%"]
+            crsr.execute(base_query, base_params)
+            all_opportunities = [dict(row) for row in crsr.fetchall()]
+            randomized = True
+            fallback_label = "no-skills"
     else:
         # --- RESTORE: Use get_best_opportunities_with_label for skill/keyword search ---
         skill_fields = ["title", "description", "organization_name", "location"]
@@ -1821,3 +1849,31 @@ Best regards,
 [Your Name]
 
 Note: This is a template email. Please personalize it with your specific skills, experience, and motivation for this opportunity."""
+
+# Add this helper function near the other fetch logic:
+def fetch_opportunities_background_inner(keyword, city):
+    user_connection = sqlite3.connect("users.db")
+    user_connection.row_factory = sqlite3.Row
+    user_crsr = user_connection.cursor()
+    user_crsr.execute("SELECT city, state FROM users WHERE username = ?", (session["name"],))
+    user = user_crsr.fetchone()
+    user_connection.close()
+    if not user or not user["city"]:
+        return
+    search_city = city.strip() if city and city.strip() else user["city"]
+    # Fetch new opportunities from ChatGPT
+    if keyword:
+        chatgpt_prompt = f"""Generate 5 volunteer opportunities in {search_city} related to '{keyword}'. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
+        opportunities_text = get_opportunities_from_chatgpt(search_city, custom_prompt=chatgpt_prompt)
+    else:
+        opportunities_text = get_opportunities_from_chatgpt(search_city)
+    user_state = user["state"] if "state" in user.keys() else None
+    if opportunities_text:
+        parsed_opportunities = extract_opportunity_info(opportunities_text, user_state)
+        connection = sqlite3.connect("opportunities.db")
+        connection.row_factory = sqlite3.Row
+        crsr = connection.cursor()
+        for opp in parsed_opportunities:
+            insert_opportunity_safely(crsr, opp)
+        connection.commit()
+        connection.close()

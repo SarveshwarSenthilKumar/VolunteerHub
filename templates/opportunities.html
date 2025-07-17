@@ -494,6 +494,10 @@
 </section>
 
 {% if opportunities %}
+  <div class="relevance-indicator" style="font-weight:bold; color:#1976d2; margin-bottom:10px; text-align:center;">Sorted by Relevance</div>
+{% endif %}
+
+{% if opportunities %}
     <div class="opportunities-grid">
         {% for opportunity in opportunities %}
         <div class="flip-card" onclick="flipCard(this)">
