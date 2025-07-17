@@ -1,3 +1,4 @@
+# Script to create and initialize the opportunities database for VolunteerHub
 import os
 from datetime import datetime
 import pytz

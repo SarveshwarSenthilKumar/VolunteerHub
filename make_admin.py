@@ -1,3 +1,4 @@
+# Script to promote a user to admin in VolunteerHub
 import sqlite3
 
 def make_user_admin(username):

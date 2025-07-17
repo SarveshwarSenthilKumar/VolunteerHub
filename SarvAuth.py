@@ -1,3 +1,4 @@
+# SarvAuth: Custom authentication utilities for VolunteerHub
 import hashlib
 import re
 import os

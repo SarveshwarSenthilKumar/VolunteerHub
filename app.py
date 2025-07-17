@@ -1,3 +1,5 @@
+# VolunteerHub main Flask application
+# Handles all backend routes, authentication, and business logic
 from flask import Flask, render_template, request, redirect, session, jsonify, send_file, url_for
 from flask_session import Session
 from datetime import datetime, timedelta

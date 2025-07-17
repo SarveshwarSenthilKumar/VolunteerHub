@@ -1,3 +1,4 @@
+# SQL helper functions and database utilities for VolunteerHub
 import sys
 import threading
 import re

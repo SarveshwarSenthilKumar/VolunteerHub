@@ -1,3 +1,4 @@
+# Script to reset the users database for VolunteerHub
 import sqlite3
 
 conn = sqlite3.connect('users.db')

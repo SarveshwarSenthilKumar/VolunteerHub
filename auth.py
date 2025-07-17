@@ -1,3 +1,5 @@
+# Authentication blueprint for VolunteerHub
+# Handles user login, signup, and logout routes
 from flask import Flask, render_template, request, redirect, session, jsonify, Blueprint
 from flask_session import Session
 from datetime import datetime
