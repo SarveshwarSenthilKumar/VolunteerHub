@@ -557,29 +557,27 @@ def search_opportunities():
     if not search_city and not any(used_skills):
         base_query = "SELECT * FROM opportunities ORDER BY created_at DESC"
         base_params = []
-        print(f"[DEBUG] Query: {base_query}, Params: {base_params}")
         crsr.execute(base_query, base_params)
         all_opportunities = [dict(row) for row in crsr.fetchall()]
-        print(f"[DEBUG] Results found: {len(all_opportunities)}")
         randomized = True
         fallback_label = "no-profile"
     # If no skills but has city, show all in city
     elif not any(used_skills):
         base_query = "SELECT * FROM opportunities WHERE LOWER(city) LIKE ? ORDER BY created_at DESC"
         base_params = [f"%{search_city.lower()}%"]
-        print(f"[DEBUG] Query: {base_query}, Params: {base_params}")
         crsr.execute(base_query, base_params)
         all_opportunities = [dict(row) for row in crsr.fetchall()]
-        print(f"[DEBUG] Results found: {len(all_opportunities)}")
         randomized = True
         fallback_label = "no-skills"
     else:
-        # Existing logic for skills/keywords
+        # --- RESTORE: Use get_best_opportunities_with_label for skill/keyword search ---
         skill_fields = ["title", "description", "organization_name", "location"]
         combined_skills = used_skills + [kw.lower() for kw in all_keywords if kw]
-        print(f"[DEBUG] Querying with skills: {combined_skills}")
-        all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(crsr, user["id"], search_city, combined_skills, "SELECT * FROM opportunities WHERE 1=1" + (f" AND LOWER(city) LIKE ?" if search_city else ""), ([f"%{search_city.lower()}%"] if search_city else []), skill_fields, min_results=1, debug_label="opportunities")
-        print(f"[DEBUG] Results found: {len(all_opportunities)}")
+        base_query = "SELECT * FROM opportunities WHERE 1=1" + (f" AND LOWER(city) LIKE ?" if search_city else "")
+        base_params = [f"%{search_city.lower()}%"] if search_city else []
+        all_opportunities, randomized, fallback_label = get_best_opportunities_with_label(
+            crsr, user["id"], search_city, combined_skills, base_query, base_params, skill_fields, min_results=1, debug_label="opportunities"
+        )
     connection.close()
     # Pagination
     total_opportunities = len(all_opportunities)
