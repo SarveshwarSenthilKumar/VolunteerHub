@@ -11,12 +11,15 @@ Add option for organizers to get verified and post their own volunteering roles 
 
 Create a nominations model similar to the ice bucket challenge where users can challenge their friends for higher rewards
 
+Implement points system such that the recruiter or volunteering organizer can give hours based on username, and this could be a way of implementing a monetization program with a limited amount per month.
 Gamified System:
 - Total Volunteer Roles this year
 - Volunteer Streak type idea, github, snapchat like
 - Add points for each volunteer role which can be redeemed later
 
 Unique Portfolio Generater - Powered by AI which can include things like badges and reflections, timelines, charts, all can be shareable with a unique link like a search function, simple get request
+
+Add a feature where organizers can swift through and find the best volunteers near them or for specific skill sets
 
 Team Volunteering Mode - Groups of friends can pool together and or create/join teams, find opportunities that accept groups, can compete against other groups, modify email function to cater towards team volunteering Mode
 
