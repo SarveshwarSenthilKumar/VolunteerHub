@@ -1,0 +1,23 @@
+
+Send out emails to certain organizations and ask for opportunities, mentorships and also rewards system
+
+Create a why volunteer page for volunteerhub to have an extra page to seem more intricate as well as just for general information
+
+Update README for volunteerhubsite as well as the main platform
+
+Add Gemini API integration for volunteer opportunity generation in addition to OpenAI API
+
+Add option for organizers to get verified and post their own volunteering roles and challenges
+
+Gamified System:
+- Total Volunteer Roles this year
+- Volunteer Streak type idea, github, snapchat like
+- Add points for each volunteer role which can be redeemed later
+
+Unique Portfolio Generater - Powered by AI which can include things like badges and reflections, timelines, charts, all can be shareable with a unique link like a search function, simple get request
+
+Team Volunteering Mode - Groups of friends can pool together and or create/join teams, find opportunities that accept groups, can compete against other groups, modify email function to cater towards team volunteering Mode
+
+Have a trend dashboard which groups together all the different opportunities from every city and delivers real time analytics such as in-demand skills, causes, and under-applied opportunities, call it an impact visualizer
+
+Have different stories and pages of people who were volunteers and went on to do better things and have different organizations like the think fresh pages
