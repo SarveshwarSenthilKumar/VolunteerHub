@@ -12,6 +12,8 @@ auth_blueprint = Blueprint('auth', __name__)
 
 @auth_blueprint.route('/login', methods=['GET', 'POST'])
 def login():
+    if session.get("name"):
+        return redirect("/")
     if request.method == 'POST':
         username_or_phone = request.form.get('username')
         password = request.form.get('password')
@@ -41,6 +43,8 @@ def login():
 
 @auth_blueprint.route('/signup', methods=['GET', 'POST'])
 def signup():
+    if session.get("name"):
+        return redirect("/")
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
