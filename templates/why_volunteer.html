@@ -98,9 +98,60 @@
             font-size: 1.05rem;
             color: var(--text-secondary);
         }
+        .divider {
+            width: 100%;
+            max-width: 700px;
+            margin: 3.5rem auto 2.5rem auto;
+            border: none;
+            border-top: 2px solid rgba(96,165,250,0.18);
+            box-shadow: 0 2px 16px #3b82f633;
+        }
+        .impact-section, .how-section, .benefits-section {
+            max-width: 900px;
+            margin: 0 auto 2.5rem auto;
+            background: rgba(36,44,68,0.82);
+            backdrop-filter: blur(14px);
+            border-radius: 1.5rem;
+            box-shadow: 0 2px 16px #3b82f6cc, 0 1px 0 #fff1;
+            border: 1.5px solid #3b82f6cc;
+            padding: 2.5rem 2rem;
+            text-align: center;
+        }
+        .impact-section h2, .how-section h2, .benefits-section h2 {
+            font-size: 1.7rem;
+            font-weight: 700;
+            margin-bottom: 1.1rem;
+            background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .impact-section p, .how-section p, .benefits-section p {
+            font-size: 1.13rem;
+            color: #b6c6e3;
+            margin-bottom: 1.2rem;
+        }
+        .benefits-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            justify-content: center;
+            margin-top: 1.2rem;
+        }
+        .benefit-item {
+            background: rgba(59,130,246,0.10);
+            border-radius: 1rem;
+            padding: 1.2rem 1.3rem;
+            color: var(--text-primary);
+            min-width: 180px;
+            max-width: 260px;
+            flex: 1 1 180px;
+            font-size: 1.05rem;
+            box-shadow: 0 1px 8px #3b82f655;
+        }
         .cta-section {
             text-align: center;
-            margin: 3rem 0 2rem 0;
+            margin: 3.5rem 0 2.5rem 0;
         }
         .cta-btn {
             background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
@@ -114,18 +165,21 @@
             cursor: pointer;
             transition: background 0.18s, box-shadow 0.18s, transform 0.18s;
             outline: none;
-            margin-top: 1.2rem;
+            margin: 0.7rem 1.2rem 0 1.2rem;
             letter-spacing: 0.03em;
+            display: inline-block;
+            text-decoration: none !important;
         }
         .cta-btn:hover {
             background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%);
             box-shadow: 0 4px 32px #60a5fa, 0 1px 0 #fff2;
             transform: translateY(-2px) scale(1.04);
+            text-decoration: none !important;
         }
         @media (max-width: 800px) {
-            .why-hero { padding: 2rem 0.7rem; }
-            .reasons-section { flex-direction: column; gap: 1.2rem; }
-            .reason-card { max-width: 100%; min-width: 0; }
+            .why-hero, .impact-section, .how-section, .benefits-section { padding: 2rem 0.7rem; }
+            .reasons-section, .benefits-list { flex-direction: column; gap: 1.2rem; }
+            .reason-card, .benefit-item { max-width: 100%; min-width: 0; }
         }
     </style>
 </head>
@@ -161,9 +215,32 @@
             <div class="reason-desc">Join a movement of passionate volunteers and organizations working together to create a brighter future for all.</div>
         </div>
     </div>
+    <hr class="divider" />
+    <div class="impact-section">
+        <h2>The Power of Your Impact</h2>
+        <p>Every hour you give, every skill you share, and every connection you make helps build stronger communities and brighter futures. Volunteering is a ripple effect—your actions inspire others and create positive change that extends far beyond what you see.</p>
+        <p>At VolunteerHub, we believe everyone has something unique to offer. Whether you’re helping at a local event, mentoring youth, or supporting a cause online, your contribution matters.</p>
+    </div>
+    <div class="how-section">
+        <h2>How It Works</h2>
+        <p>Getting started is easy. Sign up, tell us about your interests and skills, and our platform will match you with opportunities that fit you best. You can browse, save, and apply to opportunities, connect with organizations, and track your impact—all in one place.</p>
+        <p>Our AI-powered matching ensures you find the most relevant and rewarding ways to give back, whether you have a few hours or want to make a long-term commitment.</p>
+    </div>
+    <div class="benefits-section">
+        <h2>Benefits of Volunteering</h2>
+        <div class="benefits-list">
+            <div class="benefit-item">Grow your skills and gain real-world experience</div>
+            <div class="benefit-item">Expand your network and meet inspiring people</div>
+            <div class="benefit-item">Boost your confidence and sense of purpose</div>
+            <div class="benefit-item">Make a tangible difference in your community</div>
+            <div class="benefit-item">Discover new passions and career paths</div>
+            <div class="benefit-item">Experience the joy of giving back</div>
+        </div>
+    </div>
     <div class="cta-section">
         <div style="font-size:1.3rem;color:var(--accent-secondary);font-weight:600;margin-bottom:1.2rem;">Ready to make an impact?</div>
-        <a href="/auth/signup" class="cta-btn">Join VolunteerHub Today</a>
+        <a href="/" class="cta-btn">Back to Home</a>
+        <a href="/swipe" class="cta-btn">Find Opportunities</a>
     </div>
 </body>
 </html> 
