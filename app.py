@@ -1877,3 +1877,7 @@ def fetch_opportunities_background_inner(keyword, city):
             insert_opportunity_safely(crsr, opp)
         connection.commit()
         connection.close()
+
+@app.route('/why_volunteer')
+def why_volunteer():
+    return render_template('why_volunteer.html')

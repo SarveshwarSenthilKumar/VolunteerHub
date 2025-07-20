@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Why Volunteer | VolunteerHub</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #60a5fa;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(120deg, #181a1b 0%, #23272a 60%, #3b82f6 100%);
+            background-size: 200% 200%;
+            animation: bg-move 12s ease-in-out infinite;
+            color: var(--text-primary);
+            margin: 0;
+            min-height: 100vh;
+        }
+        @keyframes bg-move {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .why-hero {
+            max-width: 900px;
+            margin: 3.5rem auto 2.5rem auto;
+            background: rgba(36,44,68,0.82);
+            backdrop-filter: blur(18px);
+            border-radius: 2.2rem;
+            box-shadow: 0 4px 32px 0 #3b82f6cc, 0 2px 0 #fff1;
+            border: 1.5px solid #3b82f6cc;
+            padding: 3.5rem 2.5rem 2.5rem 2.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .why-hero h1 {
+            font-size: 2.7rem;
+            font-weight: 800;
+            margin-bottom: 1.2rem;
+            background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .why-hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 2.2rem;
+        }
+        .reasons-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            justify-content: center;
+            margin: 0 auto 2.5rem auto;
+            max-width: 1000px;
+        }
+        .reason-card {
+            background: rgba(36,44,68,0.72);
+            backdrop-filter: blur(12px);
+            border-radius: 1.5rem;
+            box-shadow: 0 2px 16px #3b82f6cc, 0 1px 0 #fff1;
+            border: 1.5px solid #3b82f6cc;
+            padding: 2rem 1.5rem;
+            min-width: 240px;
+            max-width: 320px;
+            flex: 1 1 260px;
+            text-align: center;
+            color: var(--text-primary);
+            transition: transform 0.18s, box-shadow 0.18s;
+        }
+        .reason-card:hover {
+            transform: translateY(-6px) scale(1.03);
+            box-shadow: 0 6px 32px #60a5fa, 0 1px 0 #fff2;
+        }
+        .reason-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent-primary);
+            text-shadow: 0 2px 16px #60a5fa99;
+        }
+        .reason-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.7rem;
+            color: var(--accent-secondary);
+        }
+        .reason-desc {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+        }
+        .cta-section {
+            text-align: center;
+            margin: 3rem 0 2rem 0;
+        }
+        .cta-btn {
+            background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+            color: #fff;
+            border: none;
+            border-radius: 1.2rem;
+            padding: 1.1rem 2.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            box-shadow: 0 2px 16px #3b82f6cc, 0 1px 0 #fff2;
+            cursor: pointer;
+            transition: background 0.18s, box-shadow 0.18s, transform 0.18s;
+            outline: none;
+            margin-top: 1.2rem;
+            letter-spacing: 0.03em;
+        }
+        .cta-btn:hover {
+            background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%);
+            box-shadow: 0 4px 32px #60a5fa, 0 1px 0 #fff2;
+            transform: translateY(-2px) scale(1.04);
+        }
+        @media (max-width: 800px) {
+            .why-hero { padding: 2rem 0.7rem; }
+            .reasons-section { flex-direction: column; gap: 1.2rem; }
+            .reason-card { max-width: 100%; min-width: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="why-hero">
+        <h1>Why Volunteer?</h1>
+        <p>Volunteering isn’t just about giving back—it’s about unlocking your potential, building lifelong connections, and making a real impact. Discover why thousands are joining VolunteerHub to change lives—including their own.</p>
+    </div>
+    <div class="reasons-section">
+        <div class="reason-card">
+            <div class="reason-icon">🌍</div>
+            <div class="reason-title">Make a Real Difference</div>
+            <div class="reason-desc">Your time and skills can transform communities, support causes you care about, and create lasting change in the world.</div>
+        </div>
+        <div class="reason-card">
+            <div class="reason-icon">🤝</div>
+            <div class="reason-title">Build Meaningful Connections</div>
+            <div class="reason-desc">Meet inspiring people, grow your network, and form friendships with others who share your passion for making a difference.</div>
+        </div>
+        <div class="reason-card">
+            <div class="reason-icon">🚀</div>
+            <div class="reason-title">Boost Your Career</div>
+            <div class="reason-desc">Gain valuable experience, develop new skills, and enhance your resume—volunteering opens doors to new opportunities.</div>
+        </div>
+        <div class="reason-card">
+            <div class="reason-icon">💡</div>
+            <div class="reason-title">Discover Your Purpose</div>
+            <div class="reason-desc">Find fulfillment and inspiration by contributing to causes that matter to you. Volunteering helps you grow and find meaning.</div>
+        </div>
+        <div class="reason-card">
+            <div class="reason-icon">🏆</div>
+            <div class="reason-title">Be a Changemaker</div>
+            <div class="reason-desc">Join a movement of passionate volunteers and organizations working together to create a brighter future for all.</div>
+        </div>
+    </div>
+    <div class="cta-section">
+        <div style="font-size:1.3rem;color:var(--accent-secondary);font-weight:600;margin-bottom:1.2rem;">Ready to make an impact?</div>
+        <a href="/auth/signup" class="cta-btn">Join VolunteerHub Today</a>
+    </div>
+</body>
+</html> 
