@@ -525,33 +525,51 @@
 
     {% block extra_js %}
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    window.initVolunteerHubNavbarDropdown = function() {
         const menuBtn = document.getElementById('vh-hamburger');
         const dropdown = document.getElementById('vh-dropdown');
-        if (menuBtn && dropdown) {
-            function toggleMenu(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                const isOpen = dropdown.classList.toggle('open');
-                menuBtn.classList.toggle('open', isOpen);
-                menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        if (!menuBtn || !dropdown) return;
+        // Remove previous listeners to avoid duplicates
+        menuBtn.onclick = null;
+        menuBtn.ontouchstart = null;
+        document.removeEventListener('click', window.__vhDropdownDocClick, true);
+        dropdown.querySelectorAll('a').forEach(function(link) {
+            link.onclick = null;
+        });
+        function toggleMenu(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const isOpen = dropdown.classList.toggle('open');
+            menuBtn.classList.toggle('open', isOpen);
+            menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+        menuBtn.addEventListener('click', toggleMenu);
+        menuBtn.addEventListener('touchstart', toggleMenu);
+        window.__vhDropdownDocClick = function(e) {
+            if (!dropdown.contains(e.target) && !menuBtn.contains(e.target)) {
+                dropdown.classList.remove('open');
+                menuBtn.classList.remove('open');
+                menuBtn.setAttribute('aria-expanded', 'false');
             }
-            menuBtn.addEventListener('click', toggleMenu);
-            menuBtn.addEventListener('touchstart', toggleMenu);
-            document.addEventListener('click', function(e) {
-                if (!dropdown.contains(e.target) && !menuBtn.contains(e.target)) {
-                    dropdown.classList.remove('open');
-                    menuBtn.classList.remove('open');
-                    menuBtn.setAttribute('aria-expanded', 'false');
-                }
+        };
+        document.addEventListener('click', window.__vhDropdownDocClick, true);
+        dropdown.querySelectorAll('a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                dropdown.classList.remove('open');
+                menuBtn.classList.remove('open');
+                menuBtn.setAttribute('aria-expanded', 'false');
             });
-            dropdown.querySelectorAll('a').forEach(function(link) {
-                link.addEventListener('click', function() {
-                    dropdown.classList.remove('open');
-                    menuBtn.classList.remove('open');
-                    menuBtn.setAttribute('aria-expanded', 'false');
-                });
+        });
+    };
+    document.addEventListener('DOMContentLoaded', function() {
+        window.initVolunteerHubNavbarDropdown();
+        // MutationObserver to re-initialize if navbar is replaced
+        const nav = document.querySelector('.vh-nav-content');
+        if (nav) {
+            const observer = new MutationObserver(function() {
+                window.initVolunteerHubNavbarDropdown();
             });
+            observer.observe(nav, { childList: true, subtree: true });
         }
     });
     </script>
