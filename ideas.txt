@@ -3,6 +3,8 @@ Update nav bar to make the webapp look better and more aesthetic
 
 Send out emails to certain organizations and ask for opportunities, mentorships and also rewards system
 
+Create a separate page for things like events, hackathons and other recent things
+
 Create a why volunteer page for volunteerhub to have an extra page to seem more intricate as well as just for general information
 
 Update README for volunteerhubsite as well as the main platform
