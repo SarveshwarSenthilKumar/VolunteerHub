@@ -9,6 +9,8 @@ Add Gemini API integration for volunteer opportunity generation in addition to O
 
 Create a LinkedIn like social media platform but for VolunteerHub following the same style which is dedicated to professional things like volunteering and such
 
+Create a sharing system for cards where each opportunity can get a separate page which can be toggled using a get request which can be easily shared across platforms
+
 Add option for organizers to get verified and post their own volunteering roles and challenges
 
 Make sure to create a version with MySQL in order to be ready for production deployment and make it easier to scale
