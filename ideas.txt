@@ -15,6 +15,7 @@ Make sure to create a version with MySQL in order to be ready for production dep
 
 Create a nominations model similar to the ice bucket challenge where users can challenge their friends for higher rewards
 
+Use Blockchain technology to keep track of the points as tokens for extra tech and investor benefit
 Implement points system such that the recruiter or volunteering organizer can give hours based on username, and this could be a way of implementing a monetization program with a limited amount per month.
 Gamified System:
 - Total Volunteer Roles this year
