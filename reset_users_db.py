@@ -23,5 +23,4 @@ cursor.execute('''
     )
 ''')
 conn.commit()
-conn.close()
-print("users.db has been reset with the latest schema.") 
+conn.close() 

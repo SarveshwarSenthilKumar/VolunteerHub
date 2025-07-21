@@ -35,5 +35,4 @@ cursor.execute('''
     )
 ''')
 conn.commit()
-conn.close()
-print("opportunities.db has been reset with the latest schema.") 
+conn.close() 
