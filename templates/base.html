@@ -15,6 +15,13 @@
             --success: #22c55e;
             --error: #ef4444;
             --warning: #f59e0b;
+            --vh-nav-bg: rgba(17,24,39,0.97);
+            --vh-nav-shadow: 0 4px 24px 0 rgba(59,130,246,0.10);
+            --vh-nav-radius: 1.2rem;
+            --vh-nav-accent: #3b82f6;
+            --vh-nav-accent2: #60a5fa;
+            --vh-nav-icon: #fff;
+            --vh-nav-tooltip-bg: #23272a;
         }
 
         * {
@@ -61,6 +68,9 @@
             text-decoration: none;
             flex-shrink: 0;
             margin-right: 2.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
         }
         .nav-links {
             display: flex;
@@ -323,52 +333,187 @@
             .simple-menu-btn, .simple-dropdown { display: none !important; }
         }
         .nav-toggle, .mobile-nav-dropdown, .futuristic-menu-btn, .futuristic-dropdown, .modern-menu-btn, .modern-dropdown { display: none !important; }
+        .vh-nav {
+            background: var(--vh-nav-bg);
+            box-shadow: var(--vh-nav-shadow);
+            position: sticky;
+            top: 0;
+            z-index: 2000;
+            padding: 1rem 2rem;
+        }
+        .vh-nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+        /* Logo untouched */
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            flex-shrink: 0;
+            margin-right: 2.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+        /* Hamburger Button */
+        #vh-hamburger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--vh-nav-accent) 0%, var(--vh-nav-accent2) 100%);
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 4px 24px 0 rgba(59,130,246,0.18);
+            cursor: pointer;
+            position: relative;
+            transition: box-shadow 0.2s, background 0.2s, transform 0.18s;
+            outline: none;
+        }
+        #vh-hamburger:active, #vh-hamburger:focus {
+            box-shadow: 0 2px 8px 0 rgba(59,130,246,0.25);
+            background: linear-gradient(135deg, #2563eb 0%, var(--vh-nav-accent2) 100%);
+        }
+        #vh-hamburger .vh-hamburger-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+        #vh-hamburger .vh-hamburger-icon span {
+            display: block;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--vh-nav-icon);
+            transition: all 0.3s cubic-bezier(.68,-0.55,.27,1.55);
+        }
+        #vh-hamburger.open .vh-hamburger-icon span:nth-child(1) {
+            transform: translateY(10px) rotate(45deg);
+        }
+        #vh-hamburger.open .vh-hamburger-icon span:nth-child(2) {
+            opacity: 0;
+        }
+        #vh-hamburger.open .vh-hamburger-icon span:nth-child(3) {
+            transform: translateY(-10px) rotate(-45deg);
+        }
+        /* Dropdown */
+        #vh-dropdown {
+            position: absolute;
+            top: 110%;
+            right: 0;
+            min-width: 60px;
+            background: var(--vh-nav-bg);
+            border-radius: var(--vh-nav-radius);
+            box-shadow: 0 8px 32px 0 rgba(59,130,246,0.18);
+            padding: 1.1rem 0.5rem;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-16px) scale(0.98);
+            transition: opacity 0.28s cubic-bezier(.68,-0.55,.27,1.55), transform 0.28s cubic-bezier(.68,-0.55,.27,1.55);
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        #vh-dropdown.open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+        #vh-dropdown a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            margin: 0 auto;
+            border-radius: 50%;
+            background: none;
+            color: var(--vh-nav-icon);
+            font-size: 1.35em;
+            transition: background 0.18s, color 0.18s, transform 0.18s;
+            text-decoration: none;
+            box-shadow: 0 2px 8px 0 rgba(59,130,246,0.08);
+            position: relative;
+        }
+        #vh-dropdown a:hover, #vh-dropdown a:focus {
+            background: linear-gradient(135deg, var(--vh-nav-accent) 0%, var(--vh-nav-accent2) 100%);
+            color: #fff;
+            transform: scale(1.08) translateY(-2px);
+        }
+        #vh-dropdown a .vh-nav-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            background: var(--vh-nav-tooltip-bg);
+            color: #fff;
+            text-align: center;
+            border-radius: 0.5em;
+            padding: 0.3em 0.8em;
+            position: absolute;
+            left: 110%;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10000;
+            font-size: 0.95em;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: opacity 0.18s, visibility 0.18s;
+            pointer-events: none;
+        }
+        #vh-dropdown a:hover .vh-nav-tooltip, #vh-dropdown a:focus .vh-nav-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        @media (max-width: 600px) {
+            .container { padding: 0.5rem; }
+            .vh-nav { padding: 0.5rem 0.7rem; }
+            .vh-nav-content { flex-direction: row; gap: 0.7rem; }
+            .logo { font-size: 1.2rem; }
+        }
+        @media (max-width: 400px) {
+            .container { padding: 0.2rem; }
+            .vh-nav { padding: 0.2rem 0.3rem; }
+            .logo { font-size: 1rem; }
+        }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-content" style="z-index: 10; position: relative;">
+    <nav class="vh-nav">
+        <div class="vh-nav-content" style="z-index: 10; position: relative;">
             <a href="/" class="logo">VolunteerHub</a>
-            {% if request.path == '/' %}
-                <button class="simple-menu-btn" id="simple-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="simple-dropdown">
-                    <span class="simple-menu-icon">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </span>
-                </button>
-                <div class="simple-dropdown" id="simple-dropdown">
-                    <div class="mobile-nav-links">
-                        {% if session.get("name") %}
-                            <a href="/swipe" class="nav-link">Find Opportunities</a>
-                            <a href="/all-opportunities" class="nav-link">View All Opportunities</a>
-                            <a href="/map" class="nav-link">Map</a>
-                            <a href="/saved" class="nav-link">Saved</a>
-                            <a href="/profile" class="nav-link">Profile</a>
-                            <a href="/ai-email" class="nav-link">AI Email Creator</a>
-                            <a href="/resume-match" class="nav-link">Resume Match</a>
-                            <a href="/auth/logout" class="nav-link">Logout</a>
-                        {% else %}
-                            <a href="/auth/login" class="nav-link">Login</a>
-                            <a href="/auth/signup" class="nav-link">Sign Up</a>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endif %}
-            <div class="nav-links">
+            <button id="vh-hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="vh-dropdown">
+                <span class="vh-hamburger-icon">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </span>
+            </button>
+            <div id="vh-dropdown">
                 {% if session.get("name") %}
-                    <a href="/swipe" class="nav-link">Find Opportunities</a>
-                    <a href="/all-opportunities" class="nav-link">View All Opportunities</a>
-                    <a href="/map" class="nav-link">Map</a>
-                    <a href="/saved" class="nav-link">Saved</a>
-                    <a href="/profile" class="nav-link">Profile</a>
-                    <a href="/ai-email" class="nav-link">AI Email Creator</a>
-                    <a href="/resume-match" class="nav-link">Resume Match</a>
-                    <a href="/auth/logout" class="nav-link">Logout</a>
+                    <a href="/swipe" tabindex="0"><i class="fas fa-fire"></i><span class="vh-nav-tooltip">Find</span></a>
+                    <a href="/all-opportunities" tabindex="0"><i class="fas fa-list"></i><span class="vh-nav-tooltip">All</span></a>
+                    <a href="/map" tabindex="0"><i class="fas fa-map-marked-alt"></i><span class="vh-nav-tooltip">Map</span></a>
+                    <a href="/saved" tabindex="0"><i class="fas fa-bookmark"></i><span class="vh-nav-tooltip">Saved</span></a>
+                    <a href="/profile" tabindex="0"><i class="fas fa-user"></i><span class="vh-nav-tooltip">Profile</span></a>
+                    <a href="/ai-email" tabindex="0"><i class="fas fa-robot"></i><span class="vh-nav-tooltip">AI Email</span></a>
+                    <a href="/resume-match" tabindex="0"><i class="fas fa-file-alt"></i><span class="vh-nav-tooltip">Resume</span></a>
+                    <a href="/auth/logout" tabindex="0"><i class="fas fa-sign-out-alt"></i><span class="vh-nav-tooltip">Logout</span></a>
                 {% else %}
-                    <a href="/auth/login" class="nav-link">Login</a>
-                    <a href="/auth/signup" class="nav-link">Sign Up</a>
+                    <a href="/auth/login" tabindex="0"><i class="fas fa-sign-in-alt"></i><span class="vh-nav-tooltip">Login</span></a>
+                    <a href="/auth/signup" tabindex="0"><i class="fas fa-user-plus"></i><span class="vh-nav-tooltip">Sign Up</span></a>
                 {% endif %}
             </div>
         </div>
@@ -381,13 +526,14 @@
     {% block extra_js %}
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const menuBtn = document.getElementById('simple-menu-btn');
-        const dropdown = document.getElementById('simple-dropdown');
+        const menuBtn = document.getElementById('vh-hamburger');
+        const dropdown = document.getElementById('vh-dropdown');
         if (menuBtn && dropdown) {
             function toggleMenu(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 const isOpen = dropdown.classList.toggle('open');
+                menuBtn.classList.toggle('open', isOpen);
                 menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             }
             menuBtn.addEventListener('click', toggleMenu);
@@ -395,12 +541,14 @@
             document.addEventListener('click', function(e) {
                 if (!dropdown.contains(e.target) && !menuBtn.contains(e.target)) {
                     dropdown.classList.remove('open');
+                    menuBtn.classList.remove('open');
                     menuBtn.setAttribute('aria-expanded', 'false');
                 }
             });
             dropdown.querySelectorAll('a').forEach(function(link) {
                 link.addEventListener('click', function() {
                     dropdown.classList.remove('open');
+                    menuBtn.classList.remove('open');
                     menuBtn.setAttribute('aria-expanded', 'false');
                 });
             });
