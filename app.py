@@ -1805,7 +1805,7 @@ def opportunity_detail(opp_id):
     except Exception as e:
         ai_email = f"Failed to generate AI email: {e}"
     
-    return render_template("opportunity_detail.html", opportunity=opportunity, ai_email=ai_email)
+    return render_template("opportunity_detail.html", opportunity=dict(opportunity), ai_email=ai_email)
 
 @app.route('/why_volunteer')
 def why_volunteer():
