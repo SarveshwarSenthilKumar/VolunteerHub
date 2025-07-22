@@ -1330,29 +1330,25 @@ Only include real opportunities with working links. Separate each opportunity wi
     
     return render_template("resume_match.html", message=message, matched_opportunities=matched_opportunities, extracted_skills=extracted_skills, page=page, total_pages=total_pages, has_prev=has_prev, has_next=has_next)
 
-@app.route('/generate-ai-email', methods=['POST'])
-def generate_ai_email():
-    try:
-        data = request.get_json()
-        opportunity = data.get('opportunity', {})
-        user_name = session.get('name', None)
-        user_real_name = None
-        user_skills = None
-        if user_name:
-            user_connection = sqlite3.connect('users.db')
-            user_connection.row_factory = sqlite3.Row
-            user_crsr = user_connection.cursor()
-            user_crsr.execute('SELECT name, skills FROM users WHERE username = ?', (user_name,))
-            user_row = user_crsr.fetchone()
-            user_connection.close()
-            if user_row:
-                if user_row['name']:
-                    user_real_name = user_row['name']
-                if user_row['skills']:
-                    user_skills = user_row['skills']
-        signature = user_real_name or user_name or 'VolunteerHub User'
-        skills_text = f"\nRelevant skills/experiences: {user_skills}" if user_skills else ""
-        prompt = f"""
+# --- Helper function for AI email generation ---
+def generate_ai_email_for_user_and_opportunity(user_name, opportunity):
+    user_real_name = None
+    user_skills = None
+    if user_name:
+        user_connection = sqlite3.connect('users.db')
+        user_connection.row_factory = sqlite3.Row
+        user_crsr = user_connection.cursor()
+        user_crsr.execute('SELECT name, skills FROM users WHERE username = ?', (user_name,))
+        user_row = user_crsr.fetchone()
+        user_connection.close()
+        if user_row:
+            if user_row['name']:
+                user_real_name = user_row['name']
+            if user_row['skills']:
+                user_skills = user_row['skills']
+    signature = user_real_name or user_name or 'VolunteerHub User'
+    skills_text = f"\nRelevant skills/experiences: {user_skills}" if user_skills else ""
+    prompt = f"""
 You are an assistant helping a volunteer write a professional, friendly, and human-sounding email to express interest in a volunteer opportunity.
 
 Here is the opportunity information:
@@ -1370,13 +1366,21 @@ Write a complete, detailed, and persuasive email with:
 - Make the email more detailed, authentic, and persuasive than a generic template.
 - Do NOT include any section labels like 'Body:', 'Closing:', or 'Signature:' in the output. Just write the email as it would be sent.
 """
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": prompt}],
-            max_tokens=400,
-            temperature=0.85
-        )
-        text = response['choices'][0]['message']['content']
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": prompt}],
+        max_tokens=400,
+        temperature=0.85
+    )
+    return response['choices'][0]['message']['content']
+
+@app.route('/generate-ai-email', methods=['POST'])
+def generate_ai_email():
+    try:
+        data = request.get_json()
+        opportunity = data.get('opportunity', {})
+        user_name = session.get('name', None)
+        text = generate_ai_email_for_user_and_opportunity(user_name, opportunity)
         return jsonify({'email': text})
     except Exception as e:
         return jsonify({'error': f'Failed to generate email: {str(e)}'}), 500
@@ -1794,90 +1798,14 @@ def opportunity_detail(opp_id):
     if not opportunity:
         return "Opportunity not found", 404
     
-    # Generate AI email for this opportunity
-    ai_email = generate_ai_email(opportunity)
+    # Use the same logic as /generate-ai-email endpoint, but call the function directly
+    user_name = session.get('name', None)
+    try:
+        ai_email = generate_ai_email_for_user_and_opportunity(user_name, dict(opportunity))
+    except Exception as e:
+        ai_email = f"Failed to generate AI email: {e}"
     
     return render_template("opportunity_detail.html", opportunity=opportunity, ai_email=ai_email)
-
-def generate_ai_email(opportunity):
-    """Generate an AI email for the opportunity"""
-    prompt = f"""
-    Generate a professional email for applying to this volunteer opportunity:
-    
-    Title: {opportunity['title']}
-    Organization: {opportunity['organization_name']}
-    Description: {opportunity['description']}
-    Location: {opportunity['location']}
-    Apply Link: {opportunity['apply_link']}
-    
-    The email should be:
-    - Professional and enthusiastic
-    - Include relevant skills and experience
-    - Show genuine interest in the organization's mission
-    - Be concise but comprehensive
-    - Include a clear call to action
-    
-    Format as a complete email with subject line, greeting, body, and closing.
-    """
-    
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a professional email writer helping users apply to volunteer opportunities. Write compelling, personalized emails that showcase the applicant's enthusiasm and relevant skills."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=500,
-            temperature=0.7
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"""Subject: Application for {opportunity['title']} Position
-
-Dear Hiring Team,
-
-I am writing to express my strong interest in the {opportunity['title']} position at {opportunity['organization_name']}. 
-
-After reviewing the opportunity description, I am excited about the possibility of contributing to your organization's mission. I believe my skills and passion align well with what you're looking for in a volunteer.
-
-{opportunity['description'][:200]}...
-
-I am particularly drawn to this role because it offers the opportunity to [add personal motivation here]. I am confident that my background and enthusiasm would make me a valuable addition to your team.
-
-I would welcome the opportunity to discuss how I can contribute to {opportunity['organization_name']} and learn more about this position. Thank you for considering my application.
-
-Best regards,
-[Your Name]
-
-Note: This is a template email. Please personalize it with your specific skills, experience, and motivation for this opportunity."""
-
-# Add this helper function near the other fetch logic:
-def fetch_opportunities_background_inner(keyword, city):
-    user_connection = sqlite3.connect("users.db")
-    user_connection.row_factory = sqlite3.Row
-    user_crsr = user_connection.cursor()
-    user_crsr.execute("SELECT city, state FROM users WHERE username = ?", (session["name"],))
-    user = user_crsr.fetchone()
-    user_connection.close()
-    if not user or not user["city"]:
-        return
-    search_city = city.strip() if city and city.strip() else user["city"]
-    # Fetch new opportunities from ChatGPT
-    if keyword:
-        chatgpt_prompt = f"""Generate 5 volunteer opportunities in {search_city} related to '{keyword}'. For each opportunity, provide the following information in this exact format:\n\nOrganization Name: [Name]\nTitle: [Title]\nDescription: [Description]\nCity: [City]\nLocation: [Location]\nDuration: [Duration]\nVolunteers Needed: [Number]\nContact Info: [Contact Info]\nApply Link: [Apply Link]\n\nSeparate each opportunity with a blank line. Ensure that the Apply Link is a valid, real-world URL (e.g., https://example.com/apply)."""
-        opportunities_text = get_opportunities_from_chatgpt(search_city, custom_prompt=chatgpt_prompt)
-    else:
-        opportunities_text = get_opportunities_from_chatgpt(search_city)
-    user_state = user["state"] if "state" in user.keys() else None
-    if opportunities_text:
-        parsed_opportunities = extract_opportunity_info(opportunities_text, user_state)
-        connection = sqlite3.connect("opportunities.db")
-        connection.row_factory = sqlite3.Row
-        crsr = connection.cursor()
-        for opp in parsed_opportunities:
-            insert_opportunity_safely(crsr, opp)
-        connection.commit()
-        connection.close()
 
 @app.route('/why_volunteer')
 def why_volunteer():
