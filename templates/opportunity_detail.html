@@ -376,6 +376,12 @@
             </div>
             
             <div class="action-buttons">
+                <button id="saveBtn" class="btn btn-primary" onclick="saveOpportunity(this)" type="button">
+                    <span id="saveBtnText">Save Opportunity</span>
+                    <span id="saveSpinner" style="display:none;margin-left:0.7em;vertical-align:middle;">
+                        <span class="spinner" style="display:inline-block;width:20px;height:20px;border:3px solid #fff;border-top:3px solid #3b82f6;border-radius:50%;animation:spin 1s linear infinite;"></span>
+                    </span>
+                </button>
                 <a href="{{ opportunity.apply_link }}" target="_blank" class="btn btn-primary">Apply Now</a>
                 <button onclick="window.history.back()" class="btn btn-secondary">Go Back</button>
             </div>
@@ -478,6 +484,48 @@
                 });
             }
         });
+
+    function saveOpportunity(btn) {
+        var saveBtnText = document.getElementById('saveBtnText');
+        var saveSpinner = document.getElementById('saveSpinner');
+        var saveToast = document.getElementById('saveToast');
+        saveBtnText.textContent = 'Saving...';
+        saveSpinner.style.display = 'inline-block';
+        btn.disabled = true;
+        fetch('/swipe_action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save', opportunity_id: {{ opportunity.id|tojson }} })
+        })
+        .then(res => res.json())
+        .then(data => {
+            saveSpinner.style.display = 'none';
+            if (data && data.success) {
+                saveBtnText.textContent = 'Saved!';
+                showSaveToast('Saved!');
+            } else {
+                saveBtnText.textContent = 'Save Opportunity';
+                btn.disabled = false;
+                showSaveToast(data && data.error ? data.error : 'Failed to save.');
+            }
+        })
+        .catch(() => {
+            saveSpinner.style.display = 'none';
+            saveBtnText.textContent = 'Save Opportunity';
+            btn.disabled = false;
+            showSaveToast('Failed to save.');
+        });
+    }
+    function showSaveToast(msg) {
+        var toast = document.getElementById('saveToast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        toast.style.display = 'block';
+        setTimeout(function() {
+            toast.classList.remove('show');
+            setTimeout(function() { toast.style.display = 'none'; }, 300);
+        }, 1600);
+    }
     </script>
 </body>
 </html> 
