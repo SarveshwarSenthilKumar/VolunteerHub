@@ -1798,14 +1798,27 @@ def opportunity_detail(opp_id):
     if not opportunity:
         return "Opportunity not found", 404
     
-    # Use the same logic as /generate-ai-email endpoint, but call the function directly
     user_name = session.get('name', None)
     try:
         ai_email = generate_ai_email_for_user_and_opportunity(user_name, dict(opportunity))
     except Exception as e:
         ai_email = f"Failed to generate AI email: {e}"
-    
-    return render_template("opportunity_detail.html", opportunity=dict(opportunity), ai_email=ai_email)
+    # Check if this opportunity is already saved
+    is_saved = False
+    if user_name:
+        user_connection = sqlite3.connect('users.db')
+        user_connection.row_factory = sqlite3.Row
+        user_crsr = user_connection.cursor()
+        user_crsr.execute('SELECT saved_opportunities FROM users WHERE username = ?', (user_name,))
+        user_row = user_crsr.fetchone()
+        user_connection.close()
+        if user_row and user_row['saved_opportunities']:
+            try:
+                saved_ids = set(int(i) for i in json.loads(user_row['saved_opportunities']))
+                is_saved = int(opportunity['id']) in saved_ids
+            except Exception:
+                is_saved = False
+    return render_template("opportunity_detail.html", opportunity=dict(opportunity), ai_email=ai_email, is_saved=is_saved)
 
 @app.route('/why_volunteer')
 def why_volunteer():

@@ -317,6 +317,43 @@
             padding: 0.5rem 0.7rem;
         }
     }
+    .star-save-btn {
+        background: none;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.1rem auto;
+        padding: 0.3em;
+        border-radius: 50%;
+        transition: background 0.18s, box-shadow 0.18s;
+        box-shadow: 0 2px 8px #fbbf24a0;
+        width: 54px;
+        height: 54px;
+    }
+    .star-save-btn:hover, .star-save-btn:focus {
+        background: #fbbf2422;
+        box-shadow: 0 4px 16px #fbbf24a0;
+    }
+    .star-save-btn[aria-pressed="true"] svg {
+        fill: #fbbf24;
+        stroke: #fbbf24;
+        transition: fill 0.18s, stroke 0.18s;
+    }
+    .star-save-btn[aria-pressed="false"] svg {
+        fill: none;
+        stroke: #fbbf24;
+        transition: fill 0.18s, stroke 0.18s;
+    }
+    @media (max-width: 600px) {
+        .star-save-btn {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1.2rem;
+        }
+    }
     </style>
 </head>
 <body>
@@ -376,11 +413,10 @@
             </div>
             
             <div class="action-buttons">
-                <button id="saveBtn" class="btn btn-primary" onclick="saveOpportunity(this)" type="button">
-                    <span id="saveBtnText">Save Opportunity</span>
-                    <span id="saveSpinner" style="display:none;margin-left:0.7em;vertical-align:middle;">
-                        <span class="spinner" style="display:inline-block;width:20px;height:20px;border:3px solid #fff;border-top:3px solid #3b82f6;border-radius:50%;animation:spin 1s linear infinite;"></span>
-                    </span>
+                <button id="saveBtn" class="star-save-btn" type="button" aria-label="Save Opportunity" title="Save Opportunity" onclick="toggleSaveOpportunity(this)">
+                    <svg id="starIcon" width="36" height="36" viewBox="0 0 24 24" fill="{{ 'currentColor' if is_saved else 'none' }}" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
                 </button>
                 <a href="{{ opportunity.apply_link }}" target="_blank" class="btn btn-primary">Apply Now</a>
                 <button onclick="window.history.back()" class="btn btn-secondary">Go Back</button>
@@ -485,35 +521,42 @@
             }
         });
 
-    function saveOpportunity(btn) {
-        var saveBtnText = document.getElementById('saveBtnText');
-        var saveSpinner = document.getElementById('saveSpinner');
+    function toggleSaveOpportunity(btn) {
+        var starIcon = document.getElementById('starIcon');
         var saveToast = document.getElementById('saveToast');
-        saveBtnText.textContent = 'Saving...';
-        saveSpinner.style.display = 'inline-block';
+        var isSaved = btn.getAttribute('aria-pressed') === 'true';
         btn.disabled = true;
         fetch('/swipe_action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'save', opportunity_id: {{ opportunity.id|tojson }} })
+            body: JSON.stringify({ action: isSaved ? 'unsave' : 'save', opportunity_id: {{ opportunity.id|tojson }} })
         })
         .then(res => res.json())
         .then(data => {
-            saveSpinner.style.display = 'none';
+            btn.disabled = false;
             if (data && data.success) {
-                saveBtnText.textContent = 'Saved!';
-                showSaveToast('Saved!');
+                if (isSaved) {
+                    btn.setAttribute('aria-pressed', 'false');
+                    btn.setAttribute('title', 'Save Opportunity');
+                    btn.setAttribute('aria-label', 'Save Opportunity');
+                    starIcon.setAttribute('fill', 'none');
+                    starIcon.setAttribute('stroke', '#fbbf24');
+                    showSaveToast('Removed from saved');
+                } else {
+                    btn.setAttribute('aria-pressed', 'true');
+                    btn.setAttribute('title', 'Unsave Opportunity');
+                    btn.setAttribute('aria-label', 'Unsave Opportunity');
+                    starIcon.setAttribute('fill', '#fbbf24');
+                    starIcon.setAttribute('stroke', '#fbbf24');
+                    showSaveToast('Saved!');
+                }
             } else {
-                saveBtnText.textContent = 'Save Opportunity';
-                btn.disabled = false;
-                showSaveToast(data && data.error ? data.error : 'Failed to save.');
+                showSaveToast(data && data.error ? data.error : 'Failed to update.');
             }
         })
         .catch(() => {
-            saveSpinner.style.display = 'none';
-            saveBtnText.textContent = 'Save Opportunity';
             btn.disabled = false;
-            showSaveToast('Failed to save.');
+            showSaveToast('Failed to update.');
         });
     }
     function showSaveToast(msg) {
@@ -526,6 +569,19 @@
             setTimeout(function() { toast.style.display = 'none'; }, 300);
         }, 1600);
     }
+    // Set initial star state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        var saveBtn = document.getElementById('saveBtn');
+        var starIcon = document.getElementById('starIcon');
+        if (saveBtn && starIcon) {
+            var isSaved = {{ 'true' if is_saved else 'false' }};
+            saveBtn.setAttribute('aria-pressed', isSaved ? 'true' : 'false');
+            saveBtn.setAttribute('title', isSaved ? 'Unsave Opportunity' : 'Save Opportunity');
+            saveBtn.setAttribute('aria-label', isSaved ? 'Unsave Opportunity' : 'Save Opportunity');
+            starIcon.setAttribute('fill', isSaved ? '#fbbf24' : 'none');
+            starIcon.setAttribute('stroke', '#fbbf24');
+        }
+    });
     </script>
 </body>
 </html> 
