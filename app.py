@@ -690,8 +690,16 @@ def remove_saved():
     
     # Remove the opportunity from saved list
     saved_opportunities = json.loads(user["saved_opportunities"] or "[]")
-    if str(opportunity_id) in saved_opportunities:
-        saved_opportunities.remove(str(opportunity_id))
+    # Accept both int and str for robust comparison
+    found = False
+    for idx, opp_id in enumerate(saved_opportunities):
+        if str(opp_id) == str(opportunity_id):
+            found = True
+            del saved_opportunities[idx]
+            break
+    if found:
+        # Store as list of ints for consistency
+        saved_opportunities = [int(i) for i in saved_opportunities]
         user_crsr.execute("UPDATE users SET saved_opportunities = ? WHERE id = ?", (json.dumps(saved_opportunities), user["id"]))
         user_connection.commit()
         user_connection.close()
