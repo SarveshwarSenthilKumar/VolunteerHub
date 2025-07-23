@@ -268,6 +268,55 @@
         pointer-events: auto;
         transform: translateX(-50%) translateY(-16px) scale(1.04);
     }
+    @media (max-width: 600px) {
+        .action-buttons {
+            flex-direction: column;
+            gap: 0.9rem;
+            margin-top: 1.1rem;
+            width: 100%;
+        }
+        .btn, .btn-primary, .btn-secondary, .themed-copy-btn {
+            width: 100%;
+            font-size: 1.08em;
+            padding: 1.1em 0.5em;
+            border-radius: 1.1em;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        .themed-copy-btn {
+            margin-bottom: 0.7rem;
+        }
+        .ai-email-section > div[style*='display:flex'] {
+            flex-direction: column !important;
+            gap: 0.7rem !important;
+            width: 100%;
+        }
+        .ai-email-section button {
+            width: 100%;
+            margin: 0;
+        }
+        .back-btn {
+            position: static;
+            display: block;
+            margin: 0 0 1.2rem 0;
+            width: 100%;
+            font-size: 1.08em;
+            border-radius: 1.1em;
+            padding: 1.1em 0;
+        }
+    }
+    @media (max-width: 400px) {
+        .opportunity-title {
+            font-size: 1.05rem;
+        }
+        .organization-name {
+            font-size: 0.95rem;
+        }
+        .themed-toast {
+            font-size: 0.95em;
+            padding: 0.5rem 0.7rem;
+        }
+    }
     </style>
 </head>
 <body>
@@ -337,9 +386,33 @@
          var opportunityData = {{ opportunity|tojson }};
         function copyEmail() {
             const emailContent = document.getElementById('emailContent').textContent;
-            navigator.clipboard.writeText(emailContent).then(function() {
+            // Try modern clipboard API first
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(emailContent).then(function() {
+                    showCopyToast('Copied!');
+                }, function() {
+                    fallbackCopyEmail(emailContent);
+                });
+            } else {
+                fallbackCopyEmail(emailContent);
+            }
+        }
+        function fallbackCopyEmail(text) {
+            // Fallback for iOS/Safari and older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                document.execCommand('copy');
                 showCopyToast('Copied!');
-            });
+            } catch (err) {
+                showCopyToast('Copy failed. Please copy manually.');
+            }
+            document.body.removeChild(textarea);
         }
         function showCopyToast(msg) {
             const toast = document.getElementById('copyToast');
