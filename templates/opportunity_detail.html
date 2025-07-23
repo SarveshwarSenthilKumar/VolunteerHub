@@ -354,6 +354,56 @@
             margin-bottom: 1.2rem;
         }
     }
+    .floating-star {
+        position: absolute;
+        top: 1.2rem;
+        right: 1.2rem;
+        z-index: 10;
+        background: rgba(30,40,60,0.85);
+        box-shadow: 0 4px 16px #fbbf24a0, 0 2px 8px #23272a44;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        transition: background 0.18s, box-shadow 0.18s, transform 0.18s;
+    }
+    .floating-star:hover, .floating-star:focus {
+        background: #fbbf2422;
+        box-shadow: 0 8px 32px #fbbf24a0, 0 2px 8px #23272a44;
+        transform: scale(1.12);
+    }
+    .floating-star[aria-pressed="true"] svg {
+        fill: url(#starGradient);
+        stroke: #fbbf24;
+        filter: drop-shadow(0 2px 8px #fbbf24a0);
+        transition: fill 0.18s, stroke 0.18s, filter 0.18s;
+    }
+    .floating-star[aria-pressed="false"] svg {
+        fill: none;
+        stroke: #fbbf24;
+        filter: drop-shadow(0 2px 8px #23272a44);
+        transition: fill 0.18s, stroke 0.18s, filter 0.18s;
+    }
+    .opportunity-card {
+        position: relative;
+    }
+    @media (max-width: 600px) {
+        .floating-star {
+            position: static;
+            margin: 0 auto 1.1rem auto;
+            display: block;
+            width: 54px;
+            height: 54px;
+        }
+        .opportunity-card {
+            padding-top: 1.2rem;
+        }
+    }
     </style>
 </head>
 <body>
@@ -413,8 +463,14 @@
             </div>
             
             <div class="action-buttons">
-                <button id="saveBtn" class="star-save-btn" type="button" aria-label="Save Opportunity" title="Save Opportunity" onclick="toggleSaveOpportunity(this)">
-                    <svg id="starIcon" width="36" height="36" viewBox="0 0 24 24" fill="{{ 'currentColor' if is_saved else 'none' }}" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">
+                <button id="saveBtn" class="star-save-btn floating-star" type="button" aria-label="Save Opportunity" title="Save Opportunity" onclick="toggleSaveOpportunity(this)">
+                    <svg id="starIcon" width="40" height="40" viewBox="0 0 24 24" fill="{{ 'url(#starGradient)' if is_saved else 'none' }}" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;filter:drop-shadow(0 2px 8px #fbbf24a0);transition:transform 0.18s;">
+                        <defs>
+                            <linearGradient id="starGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#fbbf24"/>
+                                <stop offset="100%" stop-color="#f59e42"/>
+                            </linearGradient>
+                        </defs>
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                     </svg>
                 </button>
@@ -522,8 +578,7 @@
         });
 
     function toggleSaveOpportunity(btn) {
-        var starIcon = document.getElementById('starIcon');
-        var saveToast = document.getElementById('saveToast');
+        var starIcon = btn.querySelector('svg');
         var isSaved = btn.getAttribute('aria-pressed') === 'true';
         btn.disabled = true;
         fetch('/swipe_action', {
@@ -546,7 +601,7 @@
                     btn.setAttribute('aria-pressed', 'true');
                     btn.setAttribute('title', 'Unsave Opportunity');
                     btn.setAttribute('aria-label', 'Unsave Opportunity');
-                    starIcon.setAttribute('fill', '#fbbf24');
+                    starIcon.setAttribute('fill', 'url(#starGradient)');
                     starIcon.setAttribute('stroke', '#fbbf24');
                     showSaveToast('Saved!');
                 }
@@ -572,14 +627,13 @@
     // Set initial star state on page load
     document.addEventListener('DOMContentLoaded', function() {
         var saveBtn = document.getElementById('saveBtn');
-        var starIcon = document.getElementById('starIcon');
+        var starIcon = saveBtn ? saveBtn.querySelector('svg') : null;
         if (saveBtn && starIcon) {
             var isSaved = {{ 'true' if is_saved else 'false' }};
             saveBtn.setAttribute('aria-pressed', isSaved ? 'true' : 'false');
             saveBtn.setAttribute('title', isSaved ? 'Unsave Opportunity' : 'Save Opportunity');
             saveBtn.setAttribute('aria-label', isSaved ? 'Unsave Opportunity' : 'Save Opportunity');
-            starIcon.setAttribute('fill', isSaved ? '#fbbf24' : 'none');
-            starIcon.setAttribute('stroke', '#fbbf24');
+            starIcon.setAttribute('fill', isSaved ? 'url(#starGradient)' : 'none');
         }
     });
     </script>
