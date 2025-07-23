@@ -319,7 +319,7 @@ def swipe_action():
         return jsonify({"error": "Not logged in"}), 401
     
     opportunity_id = request.json.get("opportunity_id")
-    action = request.json.get("action")  # "like", "dislike", or "save"
+    action = request.json.get("action")  # "like", "dislike", or "save" or "unsave"
     
     if not opportunity_id or not action:
         return jsonify({"error": "Missing parameters"}), 400
@@ -334,15 +334,27 @@ def swipe_action():
     if action == "save":
         # Update saved opportunities in users table
         saved_opps = json.loads(user['saved_opportunities'] or '[]')
-        if opportunity_id not in saved_opps:
-            saved_opps.append(opportunity_id)
+        if str(opportunity_id) not in [str(i) for i in saved_opps]:
+            saved_opps.append(int(opportunity_id))
             user_crsr.execute("""
                 UPDATE users 
                 SET saved_opportunities = ? 
                 WHERE username = ?
-            """, (json.dumps(saved_opps), session["name"]))
+            """, (json.dumps([int(i) for i in saved_opps]), session["name"]))
             user_connection.commit()
-    else:
+    elif action == "unsave":
+        # Remove from saved opportunities
+        saved_opps = json.loads(user['saved_opportunities'] or '[]')
+        found = False
+        for idx, opp_id in enumerate(saved_opps):
+            if str(opp_id) == str(opportunity_id):
+                found = True
+                del saved_opps[idx]
+                break
+        if found:
+            user_crsr.execute("UPDATE users SET saved_opportunities = ? WHERE username = ?", (json.dumps([int(i) for i in saved_opps]), session["name"]))
+            user_connection.commit()
+    elif action in ("like", "dislike"):
         # Record the swipe in opportunities.db
         opp_connection = sqlite3.connect("opportunities.db")
         opp_crsr = opp_connection.cursor()
@@ -352,7 +364,6 @@ def swipe_action():
         """, (user['id'], opportunity_id, action, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         opp_connection.commit()
         opp_connection.close()
-    
     user_connection.close()
     return jsonify({"success": True})
 
