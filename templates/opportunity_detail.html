@@ -656,10 +656,51 @@
             font-size: 0.85rem;
         }
     }
+    .saved-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.7em;
+        background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+        color: #fff;
+        font-weight: 600;
+        font-size: 1.08rem;
+        padding: 1.1em 1.2em;
+        border-radius: 1.1em;
+        margin: 1.2em auto 1.2em auto;
+        max-width: 700px;
+        box-shadow: 0 2px 16px #3b82f6a0;
+        letter-spacing: 0.01em;
+        z-index: 100;
+    }
+    .saved-banner .icon {
+        font-size: 1.5em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    @media (max-width: 600px) {
+        .saved-banner {
+            font-size: 1em;
+            padding: 0.7em 0.7em;
+            border-radius: 0.7em;
+            margin: 0.7em 0 1em 0;
+            max-width: 100%;
+        }
+        .saved-banner .icon {
+            font-size: 1.2em;
+        }
+    }
     </style>
 </head>
 <body>
     <div class="container">
+        {% if is_saved %}
+        <div class="saved-banner">
+            <span class="icon">★</span>
+            This is a seen and already saved opportunity.
+        </div>
+        {% endif %}
         <a href="javascript:history.back()" class="back-btn">&larr;<span> Back</span></a>
         
         <div class="header">
