@@ -17,6 +17,49 @@
             max-width: 600px;
             margin: 0 auto;
             padding: 1.2rem 0.7rem 5.5rem 0.7rem;
+            transition: max-width 0.2s, padding 0.2s;
+        }
+        @media (min-width: 900px) {
+            .container {
+                max-width: 900px;
+                padding: 2.5rem 2.5rem 7rem 2.5rem;
+            }
+            .opportunity-card {
+                padding: 2.2rem 2.2rem 2.2rem 2.2rem;
+                border-radius: 1.7rem;
+            }
+            .opportunity-title {
+                font-size: 2.1rem;
+            }
+            .organization-name {
+                font-size: 1.3rem;
+            }
+            .detail-section h3 {
+                font-size: 1.18rem;
+            }
+            .detail-section p {
+                font-size: 1.13rem;
+            }
+            .description h3, .ai-email-section h3 {
+                font-size: 1.18rem;
+            }
+            .description p, .email-content {
+                font-size: 1.13rem;
+            }
+            .ai-email-section, .description {
+                border-radius: 1.2rem;
+                padding: 1.5rem 1.3rem;
+            }
+            .action-footer {
+                max-width: 900px;
+                padding: 1.2em 2em 2em 2em;
+                border-radius: 1.3em 1.3em 0 0;
+            }
+            .action-footer .btn, .action-footer .btn-primary, .action-footer .btn-secondary {
+                font-size: 1.25em;
+                padding: 1.3em 0.5em;
+                border-radius: 1.2em;
+            }
         }
         .header {
             text-align: center;
@@ -69,6 +112,22 @@
                 margin-left: 0.3em;
                 font-size: 0.98em;
                 font-weight: 500;
+            }
+        }
+        @media (max-width: 600px) {
+            .back-btn {
+                position: static;
+                margin-bottom: 0.7rem;
+                width: 2rem;
+                height: 2rem;
+                min-width: 2rem;
+                min-height: 2rem;
+                font-size: 1rem;
+                padding: 0.3rem 0.7rem 0.3rem 0.7rem;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
         }
         .opportunity-card {
