@@ -1,4 +1,6 @@
 
+Add a filter for name of charity, also add a widget to see distance from user, have the level of organization and whether they are charity or not, add a report button for organizations, check expiration for opportunities, use all opportunities as a teaser and apply for only logged in, add a disclaimer for resume if hacked and other information, add age as a variable for search features
+
 Add a feature to make another version of swiping to past as scrolling down and make the scrolls smooth like instagram reels and tik tok scrolling
 
 Create a dashboard of how many opportunities the user has scrolled through and how many they have saved and make it fun to look at
