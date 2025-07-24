@@ -1,6 +1,8 @@
 
 Add a feature to make another version of swiping to past as scrolling down and make the scrolls smooth like instagram reels and tik tok scrolling
 
+Create a dashboard of how many opportunities the user has scrolled through and how many they have saved and make it fun to look at
+
 Use AI to flag suspicious behavior and posts and save it for an admin to view for manual post inputs
 
 Send out emails to certain organizations and ask for opportunities, mentorships and also rewards system
