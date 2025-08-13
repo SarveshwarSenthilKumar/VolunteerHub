@@ -1,4 +1,8 @@
 
+Convert scraped or api opportunities into the JobPosting structure as from google
+
+Daily bread, reach out to organization for possible talks regarding volunteer onboarding for Brian Hendrick and Alison Gibbins
+
 Add a filter for name of charity, also add a widget to see distance from user, have the level of organization and whether they are charity or not, add a report button for organizations, check expiration for opportunities, use all opportunities as a teaser and apply for only logged in, add a disclaimer for resume if hacked and other information, add age as a variable for search features
 
 Add a feature to make another version of swiping to past as scrolling down and make the scrolls smooth like instagram reels and tik tok scrolling
