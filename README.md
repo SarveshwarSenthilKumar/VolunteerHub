@@ -1,4 +1,4 @@
-# VolunteerHub
+# VolunteerHub: At CivicTechToronto
 
 **VolunteerHub** is the world’s most advanced AI-powered volunteer engagement platform, engineered to revolutionize how individuals and organizations connect for social good. Built with a modern, scalable architecture, VolunteerHub leverages artificial intelligence, geospatial analytics, and a seamless user experience to create the ultimate ecosystem for volunteering.
 
